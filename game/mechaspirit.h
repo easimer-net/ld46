@@ -47,7 +47,9 @@ struct Melee_Enemy {
 struct Ranged_Enemy {
 };
 
-struct Possessable {};
+struct Possessable {
+    float flMaxControlSpeed;
+};
 
 struct Chaingunner {
     float flCooldown;

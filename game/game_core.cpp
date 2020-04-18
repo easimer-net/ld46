@@ -37,6 +37,7 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define CHAINGUNNER_SPAWN_CHANCE (0.50f)
 #define CHAINGUNNER_PRIMARY_COOLDOWN (0.05f)
 #define CHAINGUNNER_MAX_HEALTH (65.0f)
+#define CHAINGUNNER_MAX_SPEED (2.0f)
 
 #define RAILGUNNER_MIN_SPAWNED (0)
 #define RAILGUNNER_MAX_SPAWNED (1)
@@ -52,10 +53,14 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define MELEE_MIN_SPAWNED (1)
 #define MELEE_MAX_SPAWNED (3)
 #define MELEE_SPAWN_CHANCE (0.50f)
+#define MELEE_PLAYER_DIST (1.5f)
+#define MELEE_MAX_SPEED (1.5f)
+#define MELEE_MAX_ROT_SPEED (3.1415926f)
 
 #define RANGED_MIN_SPAWNED (0)
 #define RANGED_MAX_SPAWNED (2)
 #define RANGED_SPAWN_CHANGE (0.25f)
+#define RANGED_PLAYER_DIST (4.5f)
 
 #define CORPSE_DISAPPEAR_TIME (8.0f)
 
@@ -192,7 +197,7 @@ static void SpawnChaingunner() {
     ent.hSprite = LoadSprite("hmecha.png");
     game_data.chaingunners[id] = {};
     game_data.living[id] = { CHAINGUNNER_MAX_HEALTH, CHAINGUNNER_MAX_HEALTH };
-    game_data.possessables[id] = {};
+    game_data.possessables[id] = { CHAINGUNNER_MAX_SPEED };
     printf("Spawned chaingunner\n");
 }
 
@@ -286,7 +291,7 @@ Application_Result OnPreFrame(float flDelta) {
         auto& const entWisp = game_data.entities[iWisp];
         auto& const wisp = kvWisp.second;
         auto& const pos = entWisp.position;
-        pos = pos + PLAYER_SPEED * flDelta * vPlayerMoveDir;
+        float flCurrentSpeed;
         if (!wisp.iPossessed.has_value()) {
             entWisp.hSprite = kvWisp.second.hSprWisp;
         } else {
@@ -321,6 +326,7 @@ Application_Result OnPreFrame(float flDelta) {
         // Possession
         if (!kvWisp.second.iPossessed.has_value()) {
             Optional<Entity_ID> iNearest;
+            flCurrentSpeed = PLAYER_SPEED;
             float flNearest = INFINITY;
             for (auto& kvPossessable : game_data.possessables) {
                 auto& ent = game_data.entities[kvPossessable.first];
@@ -341,6 +347,7 @@ Application_Result OnPreFrame(float flDelta) {
             }
         } else {
             auto iPossessed = wisp.iPossessed.value();
+            flCurrentSpeed = game_data.possessables[iPossessed].flMaxControlSpeed;
             auto& living = game_data.living[iPossessed];
             if (living.flHealth <= 0) {
                 printf("Possessed entity has died!\n");
@@ -357,6 +364,8 @@ Application_Result OnPreFrame(float flDelta) {
                 game_data.living.erase(iPossessed);
             }
         }
+
+        pos = pos + flCurrentSpeed * flDelta * vPlayerMoveDir;
     }
 
     // Chaingunner
@@ -375,6 +384,34 @@ Application_Result OnPreFrame(float flDelta) {
         [=]() { return game_data.melee_enemies.size(); }, SpawnMelee);
     for (auto& kvMelee : game_data.melee_enemies) {
         auto& entMelee = kvMelee.second;
+        auto& ent = game_data.entities[kvMelee.first];
+        auto pos = ent.position;
+
+        Optional<Entity_ID> iNearestPlayer;
+        float flPlayerDist = INFINITY;
+        lm::Vector4 vTowardsNearest;
+
+        for (auto& kvWisp : game_data.wisps) {
+            auto& entWisp = game_data.entities[kvWisp.first];
+            auto vDir = entWisp.position - pos;
+            auto flDist = lm::LengthSq(vDir);
+            if (flDist < flPlayerDist) {
+                iNearestPlayer = kvWisp.first;
+                flPlayerDist = flDist;
+                vTowardsNearest = vDir;
+            }
+        }
+
+        if (iNearestPlayer.has_value()) {
+            // TODO(danielm): this always makes them only rotate CCW
+            auto const flDesiredRot = atan2f(vTowardsNearest[1], vTowardsNearest[0]);
+            auto const flDeltaRot = flDesiredRot - ent.flRotation;
+            auto const flRatio = flDeltaRot / M_PI;
+            auto const flSpeedMul = 1 - flRatio;
+            ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
+            auto const vFwd = lm::Vector4(cosf(ent.flRotation), sinf(ent.flRotation));
+            ent.position = ent.position + flDelta * MELEE_MAX_SPEED * vFwd;
+        }
     }
 
     // Living
