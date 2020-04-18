@@ -39,6 +39,7 @@ struct Wisp {
     Sprite hSprWisp;
     Optional<Entity_ID> iPossessed;
     Living mementoLiving;
+    float flDashCooldown;
 };
 
 struct Melee_Enemy {
@@ -49,11 +50,18 @@ struct Ranged_Enemy {
     float flAttackCooldown;
 };
 
+struct Dash {
+    lm::Vector4 vDir;
+    float flTimeLeft;
+};
+
 struct Possessable {
     // TODO(danielm): constants should go into some kind of flyweight
     float flMaxControlSpeed;
     float flPrimaryDamage;
     float flPrimaryCooldown, flMaxPrimaryCooldown;
+
+    Optional<Dash> dashing;
 };
 
 struct Chaingunner {

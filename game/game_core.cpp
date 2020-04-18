@@ -32,6 +32,9 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 
 #define PLAYER_MAX_HEALTH (100.0f)
 #define PLAYER_SPEED (3.5f)
+#define PLAYER_DASH_SPEED (7.0f)
+#define PLAYER_DASH_DURATION (0.2f)
+#define PLAYER_DASH_COOLDOWN (0.65f)
 
 #define CHAINGUNNER_MIN_SPAWNED (1)
 #define CHAINGUNNER_MAX_SPAWNED (2)
@@ -57,22 +60,26 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define MELEE_MIN_SPAWNED (1)
 #define MELEE_MAX_SPAWNED (3)
 #define MELEE_SPAWN_CHANCE (0.50f)
-#define MELEE_MAX_SPEED (1.5f)
-#define MELEE_MAX_ROT_SPEED (3.1415926f)
+#define MELEE_MAX_SPEED (3.75f)
+#define MELEE_MAX_ROT_SPEED (2 * 3.1415926f)
 #define MELEE_ATTACK_RANGE_MIN (1.25f)
 #define MELEE_ATTACK_RANGE_MAX (1.5f)
 #define MELEE_ATTACK_DAMAGE (2.0f)
 #define MELEE_ATTACK_COOLDOWN (0.85f)
+#define MELEE_HEALTH (10.0f)
 
-#define RANGED_MIN_SPAWNED (0)
-#define RANGED_MAX_SPAWNED (2)
-#define RANGED_SPAWN_CHANGE (0.25f)
-#define RANGED_ATTACK_RANGE_MIN (4.0f)
-#define RANGED_ATTACK_RANGE_MAX (4.5f)
+#define RANGED_MIN_SPAWNED (1)
+#define RANGED_MAX_SPAWNED (3)
+#define RANGED_ATTACK_RANGE_MIN (6.0f)
+#define RANGED_ATTACK_RANGE_MAX (10.5f)
 #define RANGED_ATTACK_DAMAGE (0.5f)
 #define RANGED_ATTACK_COOLDOWN (0.125f)
+#define RANGED_SPAWN_CHANCE (0.25f)
+#define RANGED_MAX_ROT_SPEED (1.5f * 3.1415926f)
+#define RANGED_MAX_SPEED (2.5f)
+#define RANGED_HEALTH (7.0f)
 
-#define CORPSE_DISAPPEAR_TIME (8.0f)
+#define CORPSE_DISAPPEAR_TIME (4.0f)
 
 #define HPBAR_OFF_Y (1.25f)
 #define HPBAR_SIZ_Y (0.5f)
@@ -96,6 +103,7 @@ struct Application_Data {
     bool bPlayerWantsToPossess = false;
     bool bPlayerPrimaryAttack = false;
     bool bPlayerSecondaryAttack = false;
+    bool bPlayerDash = false;
 
     lm::Matrix4 matInvProj;
     float flScreenWidth, flScreenHeight;
@@ -296,8 +304,20 @@ static void SpawnMelee() {
     ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
     ent.size = lm::Vector4(1, 1, 1);
     ent.hSprite = LoadSprite("data/melee.png");
-    game_data.living[id] = {10, 10};
+    game_data.living[id] = {MELEE_HEALTH, MELEE_HEALTH};
     game_data.melee_enemies[id] = {};
+}
+
+static void SpawnRanged() {
+    auto& game_data = gpAppData->game_data;
+    auto id = AllocateEntity();
+    auto& ent = game_data.entities[id];
+    auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
+    ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
+    ent.size = lm::Vector4(1, 1, 1);
+    ent.hSprite = LoadSprite("data/ranged.png");
+    game_data.living[id] = {RANGED_HEALTH, RANGED_HEALTH};
+    game_data.ranged_enemies[id] = {};
 }
 
 static void RandomSpawn(size_t nMinCount, size_t nMaxCount, float flChance, std::function<size_t()> getCount, std::function<void()> spawn) {
@@ -367,21 +387,21 @@ static bool LoadGame() {
 
     CreatePlayer();
 
-    Collision_Level_Geometry level_geometry;
     auto const up = lm::Vector4(0, 1);
     auto const down = lm::Vector4(0, -1);
     auto const left = lm::Vector4(-1, 0);
     auto const right = lm::Vector4(1, 0);
-    auto const tl = lm::Vector4(-10, 10);
-    auto const bl = lm::Vector4(-10, -10);
-    auto const tr = lm::Vector4(10, 10);
-    auto const br = lm::Vector4(10, -10);
-    level_geometry.push_back({ bl + left, tl }); // left
-    level_geometry.push_back({ bl + down, br }); // bot
-    level_geometry.push_back({ br, tr + right }); // right
-    level_geometry.push_back({ tl, tr + up }); // top
+    auto const tl = lm::Vector4(-11, 11);
+    auto const bl = lm::Vector4(-11, -11);
+    auto const tr = lm::Vector4(11, 11);
+    auto const br = lm::Vector4(11, -11);
 
-    gpAppData->levelGeometry = std::move(level_geometry);
+    gpAppData->levelGeometry = {
+        {bl + left, tl},    // left
+        {bl + down, br},    // bottom
+        {br, tr + right},   // right
+        {tl, tr + up},      // top
+    };
 
     return true;
 }
@@ -464,17 +484,47 @@ static void MeleeAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 c
     DbgLine(vOrigin, vOrigin + vDir);
 }
 
-static inline float ModuloRotation(float flDesiredRotation, float flRotation) {
-    float flDelta;
+static void RangedAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 const& vDir) {
+    auto& game_data = gpAppData->game_data;
+    Collision_World cw;
+    auto const ray = Collision_Ray{ vOrigin, vDir };
 
-    flDelta = flDesiredRotation - flRotation;
+    Set<Entity_ID> collisionParticipants;
 
-    if (flDelta > M_PI) {
-        flDelta = flDelta - 2 * M_PI;
+    for (auto& kvLiving : game_data.living) {
+        auto const& ent = game_data.entities[kvLiving.first];
+        if (ent.bUsed) {
+            Collision_AABB_Entity bb;
+            bb.id = kvLiving.first;
+            auto vHalfSize = ent.size / 2;
+            bb.min = ent.position - vHalfSize;
+            bb.max = ent.position + vHalfSize;
+            cw.push_back(bb);
+        }
     }
 
+    auto res = CheckCollisions(cw, ray);
+    Entity_ID iFirstHit;
+    float flFirstHitDist = INFINITY;
 
-    return flDelta;
+    for (auto coll : res) {
+        assert(game_data.living.count(coll) > 0);
+
+        auto const& ent = game_data.entities[coll];
+        float const flDist = lm::LengthSq(ent.position - vOrigin);
+        if (coll != iMe && flDist < flFirstHitDist) {
+            iFirstHit = coll;
+            flFirstHitDist = flDist;
+        }
+    }
+
+    if (res.size() != 0) {
+        auto& living = game_data.living[iFirstHit];
+        living.flHealth -= RANGED_ATTACK_DAMAGE;
+        printf("Ranged: ent %llu damaged by 1\n", iFirstHit);
+    }
+
+    DbgLine(vOrigin, vOrigin + 8 * vDir);
 }
 
 static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
@@ -503,7 +553,6 @@ static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
         if (iNearestPlayer.has_value()) {
             if (flPlayerDist > MELEE_ATTACK_RANGE_MIN) {
                 // We could be closer to the player
-                // TODO(danielm): this always makes them only rotate CCW
                 auto const flDesiredRot = atan2f(vTowardsNearest[1], vTowardsNearest[0]);
                 auto const flRotation = ent.flRotation;
                 auto flDeltaRot = flDesiredRot - flRotation;
@@ -538,6 +587,68 @@ static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
     }
 
 }
+
+static inline void RangedLogic(float flDelta, Game_Data& game_data) {
+    RandomSpawn(RANGED_MIN_SPAWNED, RANGED_MAX_SPAWNED, RANGED_SPAWN_CHANCE,
+        [=]() { return game_data.ranged_enemies.size(); }, SpawnRanged);
+    for (auto& kvRanged : game_data.ranged_enemies) {
+        auto& entRanged = kvRanged.second;
+        auto& ent = game_data.entities[kvRanged.first];
+        auto pos = ent.position;
+
+        Optional<Entity_ID> iNearestPlayer;
+        float flPlayerDist = INFINITY;
+        lm::Vector4 vTowardsNearest;
+
+        for (auto& kvWisp : game_data.wisps) {
+            auto& entWisp = game_data.entities[kvWisp.first];
+            auto vDir = entWisp.position - pos;
+            auto flDist = lm::LengthSq(vDir);
+            if (flDist < flPlayerDist) {
+                iNearestPlayer = kvWisp.first;
+                flPlayerDist = flDist;
+                vTowardsNearest = vDir;
+            }
+        }
+
+        if (iNearestPlayer.has_value()) {
+            if (flPlayerDist > RANGED_ATTACK_RANGE_MIN) {
+                // We could be closer to the player
+                auto const flDesiredRot = atan2f(vTowardsNearest[1], vTowardsNearest[0]);
+                auto const flRotation = ent.flRotation;
+                auto flDeltaRot = flDesiredRot - flRotation;
+                // auto const flDeltaRot = flDesiredRot - ent.flRotation;
+                auto const flRatio = abs(flDeltaRot / M_PI);
+                // ent.flRotation += flRatio * RANGED_MAX_ROT_SPEED * flDelta;
+                ent.flRotation += flRatio * RANGED_MAX_ROT_SPEED * flDelta;
+                auto const vFwd = lm::Vector4(cosf(ent.flRotation), sinf(ent.flRotation));
+                auto const vFwdD = lm::Vector4(cosf(flDesiredRot), sinf(flDesiredRot));
+                // DbgLine(ent.position, ent.position + vFwd);
+                // DbgLine(ent.position, ent.position + vFwdD);
+                ent.position = ent.position + flDelta * RANGED_MAX_SPEED * vFwd;
+
+                while (ent.flRotation > M_PI) {
+                    ent.flRotation -= 2 * M_PI;
+                }
+
+                while (ent.flRotation < -M_PI) {
+                    ent.flRotation += 2 * M_PI;
+                }
+            }
+
+            if (flPlayerDist <= RANGED_ATTACK_RANGE_MAX) {
+                // Close enough to the player to attack
+                if (entRanged.flAttackCooldown <= 0.0f) {
+                    RangedAttack(kvRanged.first, ent.position, lm::Normalized(vTowardsNearest));
+                    entRanged.flAttackCooldown = RANGED_ATTACK_COOLDOWN;
+                }
+                entRanged.flAttackCooldown -= flDelta;
+            }
+        }
+    }
+
+}
+
 static inline void WispLogic(float flDelta, Game_Data& game_data) {
     // Wisp
     // Apply movement input, set sprite
@@ -552,17 +663,40 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
         auto& const entWisp = game_data.entities[iWisp];
         auto& const wisp = kvWisp.second;
         auto& const pos = entWisp.position;
+        lm::Vector4 newPos = pos;
         float flCurrentSpeed;
+
+        wisp.flDashCooldown -= flDelta;
+
         if (!wisp.iPossessed.has_value()) {
             entWisp.hSprite = kvWisp.second.hSprWisp;
         } else {
             entWisp.hSprite = NULL;
 
-            // wisp.mementoLiving = game_data.living[iWisp];
-            // game_data.living.erase(iWisp);
-
             auto id = wisp.iPossessed.value();
             auto& const possessed = game_data.entities[id];
+            auto& possessable = game_data.possessables[id];
+
+            if (gpAppData->bPlayerDash) {
+                if (!possessable.dashing && wisp.flDashCooldown <= 0.0f) {
+                    possessable.dashing = {
+                        vPlayerMoveDir,
+                        PLAYER_DASH_DURATION,
+                    };
+                    wisp.flDashCooldown = PLAYER_DASH_COOLDOWN;
+                }
+            }
+
+            if (possessable.dashing) {
+                auto& D = possessable.dashing.value();
+                newPos = newPos + PLAYER_DASH_SPEED * flDelta * D.vDir;
+                D.flTimeLeft -= flDelta;
+
+                if (D.flTimeLeft <= 0.0f) {
+                    possessable.dashing.reset();
+                }
+            }
+
             possessed.position = pos;
         }
 
@@ -632,7 +766,6 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
                 // Attack
                 if (gpAppData->bPlayerPrimaryAttack) {
                     if (possessed.flPrimaryCooldown <= 0.0f) {
-                        printf("Primary attack!\n");
                         possessed.flPrimaryCooldown = possessed.flMaxPrimaryCooldown;
                         DbgLine(entWisp.position, gpAppData->cursorWorldPos);
                         PlayerGunShoot(entWisp.position, lm::Normalized(gpAppData->cursorWorldPos - entWisp.position), possessed.flPrimaryDamage);
@@ -641,7 +774,7 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
             }
         }
 
-        auto newPos = pos + flCurrentSpeed * flDelta * vPlayerMoveDir;
+        newPos = newPos + flCurrentSpeed * flDelta * vPlayerMoveDir;
         Collision_World cw;
         Collision_AABB_Entity bb;
         auto vHalfSize = entWisp.size / 2;
@@ -652,6 +785,8 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
             pos = newPos;
         }
     }
+
+    gpAppData->bPlayerDash = false;
 }
 
 Application_Result OnPreFrame(float flDelta) {
@@ -699,6 +834,9 @@ Application_Result OnPreFrame(float flDelta) {
 
     // Melee enemies
     MeleeLogic(flDelta, game_data);
+
+    // Ranged enemies
+    RangedLogic(flDelta, game_data);
 
     // Living
     Set<Entity_ID> diedEntities;
@@ -815,6 +953,11 @@ Application_Result OnInput(SDL_Event const& ev) {
             break;
         case SDLK_e:
             gpAppData->bPlayerWantsToPossess = bDown;
+            break;
+        case SDLK_SPACE:
+            if (!bDown) {
+                gpAppData->bPlayerDash = true;
+            }
             break;
         }
     } else if (ev.type == SDL_MOUSEWHEEL) {
