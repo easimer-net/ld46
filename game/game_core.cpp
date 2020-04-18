@@ -45,7 +45,9 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define RAILGUNNER_MAX_SPAWNED (1)
 #define RAILGUNNER_SPAWN_CHANCE (0.35f)
 #define RAILGUNNER_PRIMARY_COOLDOWN (0.65f)
+#define RAILGUNNER_PRIMARY_DAMAGE (10.5f)
 #define RAILGUNNER_MAX_HEALTH (25.0f)
+#define RAILGUNNER_MAX_SPEED (2.85f)
 
 #define SPAWN_ARENA_MIN lm::Vector4(-10, -10)
 #define SPAWN_ARENA_MAX lm::Vector4(10, 10)
@@ -228,6 +230,7 @@ static void DeleteEntity(Entity_ID id) {
         game_data.ranged_enemies.erase(id);
         game_data.possessables.erase(id);
         game_data.chaingunners.erase(id);
+        game_data.railgunners.erase(id);
     }
 }
 
@@ -263,6 +266,24 @@ static void SpawnChaingunner() {
         CHAINGUNNER_PRIMARY_COOLDOWN, CHAINGUNNER_PRIMARY_COOLDOWN,
     };
     printf("Spawned chaingunner\n");
+}
+
+static void SpawnRailgunner() {
+    auto& game_data = gpAppData->game_data;
+    auto id = AllocateEntity();
+    auto& ent = game_data.entities[id];
+    auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
+    ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
+    ent.size = lm::Vector4(1, 1, 1);
+    ent.hSprite = LoadSprite("data/lmecha.png");
+    game_data.railgunners[id] = {};
+    game_data.living[id] = { RAILGUNNER_MAX_HEALTH, RAILGUNNER_MAX_HEALTH };
+    game_data.possessables[id] = { 
+        RAILGUNNER_MAX_SPEED,
+        RAILGUNNER_PRIMARY_DAMAGE,
+        RAILGUNNER_PRIMARY_COOLDOWN, RAILGUNNER_PRIMARY_COOLDOWN,
+    };
+    printf("Spawned railgunner\n");
 }
 
 static void SpawnMelee() {
@@ -519,10 +540,8 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
         } else {
             entWisp.hSprite = NULL;
 
-            entWisp.size = lm::Vector4();
-
-            wisp.mementoLiving = game_data.living[iWisp];
-            game_data.living.erase(iWisp);
+            // wisp.mementoLiving = game_data.living[iWisp];
+            // game_data.living.erase(iWisp);
 
             auto id = wisp.iPossessed.value();
             auto& const possessed = game_data.entities[id];
@@ -562,6 +581,12 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
             if (flNearest < MIN_POSSESSION_DIST * MIN_POSSESSION_DIST) {
                 if (gpAppData->bPlayerWantsToPossess) {
                     kvWisp.second.iPossessed = iNearest.value();
+                    // Save health data
+                    auto& wispLiving = game_data.living[iWisp];
+                    wisp.mementoLiving = wispLiving;
+                    game_data.living.erase(iWisp);
+                    // Set size to infinitely small
+                    entWisp.size = lm::Vector4();
                     printf("Wisp %llu possessed entity %llu\n", kvWisp.first, iNearest.value());
                 }
                 // TODO(danielm): draw possession targeting aura around the entity
@@ -577,6 +602,7 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
                 wisp.iPossessed.reset();
                 // Restore health info
                 game_data.living[iWisp] = wisp.mementoLiving;
+                printf("Restoring wisp living info: %f/%f\n", wisp.mementoLiving.flHealth, wisp.mementoLiving.flMaxHealth);
                 // Restore size
                 entWisp.size = lm::Vector4(1, 1, 1);
 
@@ -626,7 +652,16 @@ Application_Result OnPreFrame(float flDelta) {
 
     for (auto& kv : game_data.chaingunners) {
         auto& ent = game_data.entities[kv.first];
-        auto& hp = game_data.living[kv.first];
+    }
+
+    // Railgunner
+    RandomSpawn(RAILGUNNER_MIN_SPAWNED, RAILGUNNER_MAX_SPAWNED, RAILGUNNER_SPAWN_CHANCE,
+        [=]() {
+            return game_data.railgunners.size();
+    }, SpawnRailgunner);
+
+    for (auto& kv : game_data.chaingunners) {
+        auto& ent = game_data.entities[kv.first];
     }
 
     // Possessables

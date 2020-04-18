@@ -75,4 +75,5 @@ struct Game_Data {
     E_Map<Ranged_Enemy> ranged_enemies;
     E_Map<Possessable> possessables;
     E_Map<Chaingunner> chaingunners;
+    E_Map<Railgunner> railgunners;
 };
