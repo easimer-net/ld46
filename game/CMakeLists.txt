@@ -16,7 +16,6 @@ set(SRC
 	collision.cpp
 )
 
-
 add_executable(game ${SRC})
 target_include_directories(game PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIR})
 target_link_directories(game PRIVATE ${SDL2TTF_LIBRARY})

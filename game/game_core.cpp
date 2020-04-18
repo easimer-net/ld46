@@ -37,6 +37,7 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define CHAINGUNNER_MAX_SPAWNED (2)
 #define CHAINGUNNER_SPAWN_CHANCE (0.50f)
 #define CHAINGUNNER_PRIMARY_COOLDOWN (0.05f)
+#define CHAINGUNNER_PRIMARY_DAMAGE (1.0f)
 #define CHAINGUNNER_MAX_HEALTH (65.0f)
 #define CHAINGUNNER_MAX_SPEED (2.0f)
 
@@ -258,6 +259,7 @@ static void SpawnChaingunner() {
     game_data.living[id] = { CHAINGUNNER_MAX_HEALTH, CHAINGUNNER_MAX_HEALTH };
     game_data.possessables[id] = { 
         CHAINGUNNER_MAX_SPEED,
+        CHAINGUNNER_PRIMARY_DAMAGE,
         CHAINGUNNER_PRIMARY_COOLDOWN, CHAINGUNNER_PRIMARY_COOLDOWN,
     };
     printf("Spawned chaingunner\n");
@@ -345,7 +347,7 @@ static bool LoadGame() {
     return true;
 }
 
-static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir) {
+static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, float flDamage) {
     auto& game_data = gpAppData->game_data;
     Collision_World cw;
 
@@ -375,8 +377,8 @@ static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir) 
 
     for (auto iLiving : livingIds) {
         auto& living = game_data.living[iLiving];
-        living.flHealth -= 1.0f;
-        printf("Ent %llu damaged by 1\n", iLiving);
+        living.flHealth -= flDamage;
+        printf("Ent %llu damaged by %f\n", iLiving, flDamage);
     }
 }
 
@@ -589,7 +591,7 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
                         printf("Primary attack!\n");
                         possessed.flPrimaryCooldown = possessed.flMaxPrimaryCooldown;
                         DbgLine(entWisp.position, gpAppData->cursorWorldPos);
-                        PlayerGunShoot(entWisp.position, lm::Normalized(gpAppData->cursorWorldPos - entWisp.position));
+                        PlayerGunShoot(entWisp.position, lm::Normalized(gpAppData->cursorWorldPos - entWisp.position), possessed.flPrimaryDamage);
                     }
                 }
             }

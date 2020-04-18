@@ -50,9 +50,10 @@ struct Ranged_Enemy {
 };
 
 struct Possessable {
+    // TODO(danielm): constants should go into some kind of flyweight
     float flMaxControlSpeed;
-    float flPrimaryCooldown;
-    float flMaxPrimaryCooldown;
+    float flPrimaryDamage;
+    float flPrimaryCooldown, flMaxPrimaryCooldown;
 };
 
 struct Chaingunner {
