@@ -67,6 +67,7 @@ Application_Result OnPreFrame(float flDelta);
 Application_Result OnInput(SDL_Event const& ev);
 Application_Result OnDraw(rq::Render_Queue* pQueue);
 Application_Result OnPostFrame();
+Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight);
 
 static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq) {
     using namespace rq;
@@ -75,7 +76,8 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
     lm::Matrix4 matProj, matProjInv, matVP, matMVP;
     //lm::Perspective(matProj, matProjInv, r.width, r.height, 1.57079633f, 0.1, 1000.0);
     float const flAspect = r.height / (float)r.width;
-    matProj = lm::Scale(flAspect, 1, 0); // ortho
+    matProj = lm::Scale(flAspect, 1, 1); // ortho
+    matProjInv = lm::Scale(1 / flAspect, 1, 1);
 
     matVP = matProj;
 
@@ -120,6 +122,31 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
                 lm::Translation(lm::Vector4(-p[0], -p[1], -p[2])) *
                 lm::Scale(1 / cmd.move_camera.flZoom) *
                 matProj;
+            auto const matInvVP =
+                matProjInv *
+                lm::Scale(cmd.move_camera.flZoom) *
+                lm::Translation(lm::Vector4(p[0], p[1], p[2]));
+            OnProjectionMatrixUpdated(matVP, matInvVP, r.width, r.height);
+            break;
+        }
+        case k_unRCDrawLine:
+        {
+            GLuint uiBuf, uiArr;
+            auto& dl = cmd.draw_line;
+            float const aflBuf[] = {
+                dl.x0, dl.y0, dl.x1, dl.y1,
+            };
+            glGenVertexArrays(1, &uiArr);
+            glBindVertexArray(uiArr);
+            glGenBuffers(1, &uiBuf);
+            glBindBuffer(GL_ARRAY_BUFFER, uiBuf);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(aflBuf), aflBuf, GL_STREAM_DRAW);
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+            SetShaderMVP(hCurrentProgram, matVP);
+            glDrawArrays(GL_LINES, 0, 2);
+            glDeleteVertexArrays(1, &uiArr);
+            glDeleteBuffers(1, &uiBuf);
             break;
         }
         default:

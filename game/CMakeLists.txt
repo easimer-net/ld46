@@ -7,11 +7,13 @@ set(SRC
 	stb_image.h
 	textures.h
 	mechaspirit.h
+	collision.h
 
 	entry.cpp
 	game_core.cpp
 	shaders.cpp
 	textures.cpp
+	collision.cpp
 )
 
 

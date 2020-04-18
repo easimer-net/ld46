@@ -11,6 +11,7 @@
 #include "draw_queue.h"
 #include "shaders.h"
 #include "mechaspirit.h"
+#include "collision.h"
 
 #include <unordered_set>
 
@@ -65,7 +66,7 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define CORPSE_DISAPPEAR_TIME (8.0f)
 
 struct Application_Data {
-    Shader_Program shaderGeneric;
+    Shader_Program shaderGeneric, shaderDebugRed;
     gl::VAO vao;
     gl::VBO vbo;
 
@@ -80,6 +81,11 @@ struct Application_Data {
     bool bPlayerWantsToPossess = false;
     bool bPlayerPrimaryAttack = false;
     bool bPlayerSecondaryAttack = false;
+
+    lm::Matrix4 matInvProj;
+    float flScreenWidth, flScreenHeight;
+
+    lm::Vector4 cursorWorldPos;
 };
 
 static Application_Data* gpAppData = NULL;
@@ -120,6 +126,23 @@ static rq::Render_Queue Translate(dq::Draw_Queue const& dq) {
             rc.draw_triangle_strip.height = cmd.draw_world_thing.height;
             rq.Add(rc);
             
+            break;
+        }
+    }
+
+    rc.kind = rq::k_unRCChangeProgram;
+    rc.change_program.program = gpAppData->shaderDebugRed;
+    rq.Add(rc);
+
+    for (auto const& cmd : dq) {
+        switch (cmd.kind) {
+        case k_unDCDrawLine:
+            rc.kind = rq::k_unRCDrawLine;
+            rc.draw_line.x0 = cmd.draw_line.x0;
+            rc.draw_line.y0 = cmd.draw_line.y0;
+            rc.draw_line.x1 = cmd.draw_line.x1;
+            rc.draw_line.y1 = cmd.draw_line.y1;
+            rq.Add(rc);
             break;
         }
     }
@@ -197,7 +220,10 @@ static void SpawnChaingunner() {
     ent.hSprite = LoadSprite("hmecha.png");
     game_data.chaingunners[id] = {};
     game_data.living[id] = { CHAINGUNNER_MAX_HEALTH, CHAINGUNNER_MAX_HEALTH };
-    game_data.possessables[id] = { CHAINGUNNER_MAX_SPEED };
+    game_data.possessables[id] = { 
+        CHAINGUNNER_MAX_SPEED,
+        CHAINGUNNER_PRIMARY_COOLDOWN, CHAINGUNNER_PRIMARY_COOLDOWN,
+    };
     printf("Spawned chaingunner\n");
 }
 
@@ -232,6 +258,20 @@ static void RandomSpawn(size_t nMinCount, size_t nMaxCount, float flChance, std:
     }
 }
 
+static void DbgLine(float x0, float y0, float x1, float y1) {
+    dq::Draw_Command dct;
+    dct.draw_line.x0 = x0;
+    dct.draw_line.y0 = y0;
+    dct.draw_line.x1 = x1;
+    dct.draw_line.y1 = y1;
+    dct.kind = dq::k_unDCDrawLine;
+    gpAppData->dq.Add(dct);
+}
+
+static void DbgLine(lm::Vector4 p0, lm::Vector4 p1) {
+    DbgLine(p0[0], p0[1], p1[0], p1[1]);
+}
+
 static bool LoadGame() {
     auto program = BuildShader("generic.vert", "generic.frag");
     if (!program) {
@@ -258,9 +298,47 @@ static bool LoadGame() {
 
     gpAppData->shaderGeneric = program;
 
+    program = BuildShader("debug_red.vert", "debug_red.frag");
+    gpAppData->shaderDebugRed = program;
+
     CreatePlayer();
 
     return true;
+}
+
+static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir) {
+    auto& game_data = gpAppData->game_data;
+    Collision_World cw;
+
+    for (Entity_ID id = 0; id < game_data.entities.size(); id++) {
+        auto& ent = game_data.entities[id];
+        if (ent.bUsed) {
+            Collision_AABB bb;
+            bb.id = id;
+            auto vHalfSize = ent.size / 2;
+            bb.min = ent.position - vHalfSize;
+            bb.max = ent.position + vHalfSize;
+            cw.push_back(bb);
+        }
+    }
+
+    auto ray = Collision_Ray{ vOrigin, vDir };
+
+    auto res = CheckCollisions(cw, ray);
+    std::vector<Entity_ID> livingIds;
+    for (auto coll : res) {
+        if (game_data.melee_enemies.count(coll) || game_data.ranged_enemies.count(coll)) {
+            if (game_data.living.count(coll)) {
+                livingIds.push_back(coll);
+            }
+        }
+    }
+
+    for (auto iLiving : livingIds) {
+        auto& living = game_data.living[iLiving];
+        living.flHealth -= 1.0f;
+        printf("Ent %llu damaged by 1\n", iLiving);
+    }
 }
 
 Application_Result OnPreFrame(float flDelta) {
@@ -347,7 +425,8 @@ Application_Result OnPreFrame(float flDelta) {
             }
         } else {
             auto iPossessed = wisp.iPossessed.value();
-            flCurrentSpeed = game_data.possessables[iPossessed].flMaxControlSpeed;
+            auto& possessed = game_data.possessables[iPossessed];
+            flCurrentSpeed = possessed.flMaxControlSpeed;
             auto& living = game_data.living[iPossessed];
             if (living.flHealth <= 0) {
                 printf("Possessed entity has died!\n");
@@ -362,6 +441,16 @@ Application_Result OnPreFrame(float flDelta) {
                 // Make it unpossessable
                 game_data.possessables.erase(iPossessed);
                 game_data.living.erase(iPossessed);
+            } else {
+                // Attack
+                if (gpAppData->bPlayerPrimaryAttack) {
+                    if (possessed.flPrimaryCooldown <= 0.0f) {
+                        printf("Primary attack!\n");
+                        possessed.flPrimaryCooldown = possessed.flMaxPrimaryCooldown;
+                        DbgLine(entWisp.position, gpAppData->cursorWorldPos);
+                        PlayerGunShoot(entWisp.position, lm::Normalized(gpAppData->cursorWorldPos - entWisp.position));
+                    }
+                }
             }
         }
 
@@ -377,6 +466,12 @@ Application_Result OnPreFrame(float flDelta) {
     for (auto& kv : game_data.chaingunners) {
         auto& ent = game_data.entities[kv.first];
         auto& hp = game_data.living[kv.first];
+    }
+
+    // Possessables
+    for (auto& kvPos : game_data.possessables) {
+        auto& pos = kvPos.second;
+        pos.flPrimaryCooldown -= flDelta;
     }
 
     // Melee enemies
@@ -425,6 +520,8 @@ Application_Result OnPreFrame(float flDelta) {
     for (auto iLiving : diedEntities) {
         game_data.living.erase(iLiving);
         game_data.corpses[iLiving] = {};
+        game_data.melee_enemies.erase(iLiving);
+        game_data.ranged_enemies.erase(iLiving);
         printf("Entity %llu has died, created corpse\n", iLiving);
     }
 
@@ -501,6 +598,35 @@ Application_Result OnInput(SDL_Event const& ev) {
         gpAppData->cameraZoom -= ev.wheel.y;
         if (gpAppData->cameraZoom < 1) gpAppData->cameraZoom = 1;
         if (gpAppData->cameraZoom > 64) gpAppData->cameraZoom = 64;
+    } else if (ev.type == SDL_MOUSEMOTION) {
+        auto const vNdcPos =
+            lm::Vector4(
+                2 * ev.motion.x / gpAppData->flScreenWidth - 1,
+                -(2 * ev.motion.y / gpAppData->flScreenHeight - 1),
+            0, 1);
+
+        gpAppData->cursorWorldPos = gpAppData->matInvProj * vNdcPos;
+    } else if (ev.type == SDL_MOUSEBUTTONDOWN) {
+        auto const vNdcPos =
+            lm::Vector4(
+                2 * ev.motion.x / gpAppData->flScreenWidth - 1,
+                -(2 * ev.motion.y / gpAppData->flScreenHeight - 1),
+            0, 1);
+
+        gpAppData->cursorWorldPos = gpAppData->matInvProj * vNdcPos;
+
+        gpAppData->bPlayerPrimaryAttack = ev.button.button == SDL_BUTTON_LEFT;
+        gpAppData->bPlayerSecondaryAttack = ev.button.button == SDL_BUTTON_RIGHT;
+    } else if (ev.type == SDL_MOUSEBUTTONUP) {
+        auto const vNdcPos =
+            lm::Vector4(
+                2 * ev.motion.x / gpAppData->flScreenWidth - 1,
+                -(2 * ev.motion.y / gpAppData->flScreenHeight - 1),
+            0, 1);
+        gpAppData->cursorWorldPos = gpAppData->matInvProj * vNdcPos;
+
+        gpAppData->bPlayerPrimaryAttack = !(ev.button.button == SDL_BUTTON_LEFT);
+        gpAppData->bPlayerSecondaryAttack = !(ev.button.button == SDL_BUTTON_RIGHT);
     }
     return k_nApplication_Result_OK;
 }
@@ -531,3 +657,10 @@ Application_Result OnPostFrame() {
     return k_nApplication_Result_OK;
 }
 
+Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight) {
+    // gpAppData->matInvProj = lm::Scale(2 / flWidth, 2 / flHeight, 1) * matInvProj;
+    gpAppData->matInvProj = matInvProj;
+    gpAppData->flScreenWidth = flWidth;
+    gpAppData->flScreenHeight = flHeight;
+    return k_nApplication_Result_OK;
+}

@@ -23,6 +23,7 @@ namespace rq {
         k_unRCBindTexture,
         k_unRCDrawTriangleStrip,
         k_unRCMoveCamera,
+        k_unRCDrawLine,
         k_unRCMax
     };
 
@@ -53,6 +54,10 @@ namespace rq {
         Shader_Program program;
     };
 
+    struct Draw_Line_Params {
+        float x0, y0, x1, y1;
+    };
+
     struct Debug_Note_Params {
         char msg[64];
     };
@@ -76,6 +81,7 @@ namespace rq {
             Bind_Texture_Params bind_texture;
             Draw_Triangle_Strip_Params draw_triangle_strip;
             Move_Camera_Params move_camera;
+            Draw_Line_Params draw_line;
         };
     };
 

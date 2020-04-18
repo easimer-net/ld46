@@ -49,14 +49,14 @@ struct Ranged_Enemy {
 
 struct Possessable {
     float flMaxControlSpeed;
+    float flPrimaryCooldown;
+    float flMaxPrimaryCooldown;
 };
 
 struct Chaingunner {
-    float flCooldown;
 };
 
 struct Railgunner {
-    float flCooldown;
 };
 
 struct Game_Data {
