@@ -368,8 +368,18 @@ static bool LoadGame() {
     CreatePlayer();
 
     Collision_Level_Geometry level_geometry;
-
-    level_geometry.push_back({ {-11, -11}, {-10, 11} });
+    auto const up = lm::Vector4(0, 1);
+    auto const down = lm::Vector4(0, -1);
+    auto const left = lm::Vector4(-1, 0);
+    auto const right = lm::Vector4(1, 0);
+    auto const tl = lm::Vector4(-10, 10);
+    auto const bl = lm::Vector4(-10, -10);
+    auto const tr = lm::Vector4(10, 10);
+    auto const br = lm::Vector4(10, -10);
+    level_geometry.push_back({ bl + left, tl }); // left
+    level_geometry.push_back({ bl + down, br }); // bot
+    level_geometry.push_back({ br, tr + right }); // right
+    level_geometry.push_back({ tl, tr + up }); // top
 
     gpAppData->levelGeometry = std::move(level_geometry);
 
