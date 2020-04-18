@@ -14,6 +14,7 @@
 
 struct Sprite_ {
     gl::Texture2D hTexture;
+    // TODO(danielm): refcount when caching is done
 };
 
 Sprite LoadSprite(char const* pszPath) {

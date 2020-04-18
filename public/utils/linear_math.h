@@ -64,7 +64,7 @@ namespace lm {
     class Vector4 {
     public:
         constexpr Vector4() : m_flValues{ 0, 0, 0, 0 } {}
-        constexpr Vector4(float x, float y, float z, float w = 0.0f)
+        constexpr Vector4(float x, float y, float z = 0.0f, float w = 0.0f)
             : m_flValues{ x, y, z, w } {}
 
         float operator[](unsigned idx) const {

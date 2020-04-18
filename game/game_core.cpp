@@ -14,13 +14,22 @@
 
 #include <imgui.h>
 
+#define PLAYER_MOVEDIR_RIGHT    (0x1)
+#define PLAYER_MOVEDIR_UP       (0x2)
+#define PLAYER_MOVEDIR_LEFT     (0x4)
+#define PLAYER_MOVEDIR_DOWN     (0x8)
+#define PLAYER_MOVEDIR_SET(x, c) \
+gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
+#define PLAYER_MOVEDIR_GET(x) \
+(((gpAppData->playerMoveDir & (x)) != 0) ? 1.0f : 0.0f)
+
 struct Application_Data {
     Shader_Program shaderGeneric;
     gl::VAO vao;
     gl::VBO vbo;
 
     lm::Vector4 cameraPosition;
-    lm::Vector4 cameraMoveDir;
+    unsigned playerMoveDir = 0;
 
     dq::Draw_Queue dq;
 
@@ -67,6 +76,64 @@ static rq::Render_Queue Translate(dq::Draw_Queue const& dq) {
     return rq;
 }
 
+static Entity_ID AllocateEntity() {
+    Entity_ID ret;
+    auto& game_data = gpAppData->game_data;
+    std::optional<Entity_ID> reusable;
+
+    for (Entity_ID i = 0; i < game_data.entities.size() && !reusable.has_value(); i++) {
+        auto& slot = game_data.entities[i];
+        if (!slot.bUsed) {
+            reusable = i;
+        }
+    }
+
+    if (reusable.has_value()) {
+        ret = reusable.value();
+        auto& ent = game_data.entities[ret];
+        ent = {}; // reset state
+        ent.bUsed = true;
+    } else {
+        ret = game_data.entities.size();
+        game_data.entities.push_back({ true });
+    }
+
+    printf("Entity #%llu allocated\n", ret);
+
+    return ret;
+}
+
+static void DeleteEntity(Entity_ID id) {
+    auto& game_data = gpAppData->game_data;
+    if (id < game_data.entities.size()) {
+        auto& ent = game_data.entities[id];
+        FreeSprite(ent.hSprite);
+        ent.bUsed = false;
+
+        game_data.living.erase(id);
+        game_data.corpses.erase(id);
+        game_data.wisps.erase(id);
+        game_data.melee_enemies.erase(id);
+        game_data.ranged_enemies.erase(id);
+    }
+}
+
+static Entity_ID CreatePlayer() {
+    auto& game_data = gpAppData->game_data;
+    auto const ret = AllocateEntity();
+
+    game_data.entities[ret].size = lm::Vector4(1, 1, 1);
+
+    game_data.living[ret] = {
+        100.0f,
+        100.0f,
+    };
+
+    game_data.wisps[ret] = {LoadSprite("wisp.png")};
+
+    return ret;
+}
+
 Application_Result OnPreFrame(float flDelta) {
     if (gpAppData == NULL) {
         auto program = BuildShader("generic.vert", "generic.frag");
@@ -92,18 +159,36 @@ Application_Result OnPreFrame(float flDelta) {
 
         gpAppData->shaderGeneric = program;
 
-        Entity test_ent;
-        test_ent.bUsed = true;
-        test_ent.size = lm::Vector4(1, 1, 1);
-        test_ent.position = lm::Vector4();
-        test_ent.hSprite = LoadSprite("test.png");
-        gpAppData->game_data.entities.push_back(test_ent);
+        CreatePlayer();
     }
 
-    // TODO(danielm): game logic here
+    // =======================
+    // Game logic
+    // =======================
 
-    // Find entities with valid sprite data
     auto& game_data = gpAppData->game_data;
+    auto const vPlayerMoveDir =
+        PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_RIGHT) * lm::Vector4(1.0f, 0.0f) +
+        PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_UP)    * lm::Vector4(0.0f, 1.0f) +
+        PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_LEFT) * lm::Vector4(-1.0f, 0.0f) +
+        PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_DOWN) * lm::Vector4(0.0f, -1.0f);
+
+    // Wisp
+    // Apply movement input, set sprite
+    for (auto const& kv : game_data.wisps) {
+        auto& ent = game_data.entities[kv.first];
+        auto& wisp = kv.second;
+        auto& pos = ent.position;
+        pos = pos + flDelta * vPlayerMoveDir;
+        if (!wisp.iPossessed.has_value()) {
+            ent.hSprite = kv.second.hSprWisp;
+        } else {
+            ent.hSprite = NULL;
+        }
+    }
+
+    // Generic drawable entity
+    // Find entities with valid sprite data
     auto& dq = gpAppData->dq;
 
     for (auto const& ent : game_data.entities) {
@@ -125,19 +210,19 @@ Application_Result OnPreFrame(float flDelta) {
 Application_Result OnInput(SDL_Event const& ev) {
     if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) {
         bool bDown = ev.type == SDL_KEYDOWN;
-        auto moveDir = gpAppData->cameraMoveDir;
+        auto moveDir = gpAppData->playerMoveDir;
         switch (ev.key.keysym.sym) {
         case SDLK_w:
-            gpAppData->cameraMoveDir = lm::Vector4(moveDir[0], bDown ? -1.0f : 0.0f, 0);
+            PLAYER_MOVEDIR_SET(PLAYER_MOVEDIR_UP, bDown);
             break;
         case SDLK_a:
-            gpAppData->cameraMoveDir = lm::Vector4(bDown ? -1.0f : 0.0f, moveDir[1], 0);
+            PLAYER_MOVEDIR_SET(PLAYER_MOVEDIR_LEFT, bDown);
             break;
         case SDLK_s:
-            gpAppData->cameraMoveDir = lm::Vector4(moveDir[0], bDown ? 1.0f : 0.0f, 0);
+            PLAYER_MOVEDIR_SET(PLAYER_MOVEDIR_DOWN, bDown);
             break;
         case SDLK_d:
-            gpAppData->cameraMoveDir = lm::Vector4(bDown ? 1.0f : 0.0f, moveDir[1], 0);
+            PLAYER_MOVEDIR_SET(PLAYER_MOVEDIR_RIGHT, bDown);
             break;
         }
     }

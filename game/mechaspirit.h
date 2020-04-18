@@ -8,11 +8,13 @@
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
+#include <optional>
 
 #include <utils/linear_math.h>
 #include "textures.h"
 
 using Entity_ID = size_t;
+template<typename T> using Optional = std::optional<T>;
 
 struct Entity {
     bool bUsed;
@@ -33,6 +35,8 @@ struct Corpse {
 };
 
 struct Wisp {
+    Sprite hSprWisp;
+    Optional<Entity_ID> iPossessed;
 };
 
 struct Melee_Enemy {
