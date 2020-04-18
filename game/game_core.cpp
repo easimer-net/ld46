@@ -58,13 +58,16 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define MELEE_MAX_ROT_SPEED (3.1415926f)
 #define MELEE_ATTACK_RANGE_MIN (1.25f)
 #define MELEE_ATTACK_RANGE_MAX (1.5f)
-#define MELEE_ATTACK_DAMAGE (1.0f)
+#define MELEE_ATTACK_DAMAGE (2.0f)
+#define MELEE_ATTACK_COOLDOWN (0.85f)
 
 #define RANGED_MIN_SPAWNED (0)
 #define RANGED_MAX_SPAWNED (2)
 #define RANGED_SPAWN_CHANGE (0.25f)
-#define MELEE_ATTACK_RANGE_MIN (4.0f)
-#define MELEE_ATTACK_RANGE_MAX (4.5f)
+#define RANGED_ATTACK_RANGE_MIN (4.0f)
+#define RANGED_ATTACK_RANGE_MAX (4.5f)
+#define RANGED_ATTACK_DAMAGE (0.5f)
+#define RANGED_ATTACK_COOLDOWN (0.125f)
 
 #define CORPSE_DISAPPEAR_TIME (8.0f)
 
@@ -397,15 +400,24 @@ static void MeleeAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 c
     }
 
     auto res = CheckCollisions(cw, ray);
+    Entity_ID iFirstHit;
+    float flFirstHitDist = INFINITY;
 
     for (auto coll : res) {
         assert(game_data.living.count(coll) > 0);
 
-        if (coll != iMe) {
-            auto& living = game_data.living[coll];
-            living.flHealth -= MELEE_ATTACK_DAMAGE;
-            printf("Melee: ent %llu damaged by 1\n", coll);
+        auto const& ent = game_data.entities[coll];
+        float const flDist = lm::LengthSq(ent.position - vOrigin);
+        if (coll != iMe && flDist < flFirstHitDist) {
+            iFirstHit = coll;
+            flFirstHitDist = flDist;
         }
+    }
+
+    if (res.size() != 0) {
+        auto& living = game_data.living[iFirstHit];
+        living.flHealth -= MELEE_ATTACK_DAMAGE;
+        printf("Melee: ent %llu damaged by 1\n", iFirstHit);
     }
 
     DbgLine(vOrigin, vOrigin + vDir);
@@ -449,7 +461,11 @@ static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
 
             if (flPlayerDist <= MELEE_ATTACK_RANGE_MAX) {
                 // Close enough to the player to attack
-                MeleeAttack(kvMelee.first, ent.position, lm::Normalized(vTowardsNearest));
+                if (entMelee.flAttackCooldown <= 0.0f) {
+                    MeleeAttack(kvMelee.first, ent.position, lm::Normalized(vTowardsNearest));
+                    entMelee.flAttackCooldown = MELEE_ATTACK_COOLDOWN;
+                }
+                entMelee.flAttackCooldown -= flDelta;
             }
         }
     }

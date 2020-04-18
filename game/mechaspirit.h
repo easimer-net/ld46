@@ -42,9 +42,11 @@ struct Wisp {
 };
 
 struct Melee_Enemy {
+    float flAttackCooldown;
 };
 
 struct Ranged_Enemy {
+    float flAttackCooldown;
 };
 
 struct Possessable {
