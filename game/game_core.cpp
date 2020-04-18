@@ -18,6 +18,7 @@ template<typename T>
 using Set = std::unordered_set<T>;
 
 #include <imgui.h>
+#include <functional>
 
 #define PLAYER_MOVEDIR_RIGHT    (0x1)
 #define PLAYER_MOVEDIR_UP       (0x2)
@@ -28,20 +29,35 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define PLAYER_MOVEDIR_GET(x) \
 (((gpAppData->playerMoveDir & (x)) != 0) ? 1.0f : 0.0f)
 
+#define PLAYER_MAX_HEALTH (100.0f)
+#define PLAYER_SPEED (3.5f)
+
 #define CHAINGUNNER_MIN_SPAWNED (1)
 #define CHAINGUNNER_MAX_SPAWNED (2)
 #define CHAINGUNNER_SPAWN_CHANCE (0.50f)
 #define CHAINGUNNER_PRIMARY_COOLDOWN (0.05f)
+#define CHAINGUNNER_MAX_HEALTH (65.0f)
 
 #define RAILGUNNER_MIN_SPAWNED (0)
 #define RAILGUNNER_MAX_SPAWNED (1)
 #define RAILGUNNER_SPAWN_CHANCE (0.35f)
 #define RAILGUNNER_PRIMARY_COOLDOWN (0.65f)
+#define RAILGUNNER_MAX_HEALTH (25.0f)
 
 #define SPAWN_ARENA_MIN lm::Vector4(-10, -10)
 #define SPAWN_ARENA_MAX lm::Vector4(10, 10)
 
 #define MIN_POSSESSION_DIST (1)
+
+#define MELEE_MIN_SPAWNED (1)
+#define MELEE_MAX_SPAWNED (3)
+#define MELEE_SPAWN_CHANCE (0.50f)
+
+#define RANGED_MIN_SPAWNED (0)
+#define RANGED_MAX_SPAWNED (2)
+#define RANGED_SPAWN_CHANGE (0.25f)
+
+#define CORPSE_DISAPPEAR_TIME (8.0f)
 
 struct Application_Data {
     Shader_Program shaderGeneric;
@@ -157,8 +173,8 @@ static Entity_ID CreatePlayer() {
     game_data.entities[ret].size = lm::Vector4(1, 1, 1);
 
     game_data.living[ret] = {
-        100.0f,
-        100.0f,
+        PLAYER_MAX_HEALTH,
+        PLAYER_MAX_HEALTH,
     };
 
     game_data.wisps[ret] = {LoadSprite("wisp.png")};
@@ -175,9 +191,40 @@ static void SpawnChaingunner() {
     ent.size = lm::Vector4(1, 1, 1);
     ent.hSprite = LoadSprite("hmecha.png");
     game_data.chaingunners[id] = {};
-    game_data.living[id] = {};
+    game_data.living[id] = { CHAINGUNNER_MAX_HEALTH, CHAINGUNNER_MAX_HEALTH };
     game_data.possessables[id] = {};
     printf("Spawned chaingunner\n");
+}
+
+static void SpawnMelee() {
+    auto& game_data = gpAppData->game_data;
+    auto id = AllocateEntity();
+    auto& ent = game_data.entities[id];
+    auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
+    ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
+    ent.size = lm::Vector4(1, 1, 1);
+    ent.hSprite = LoadSprite("melee.png");
+    game_data.living[id] = {10, 10};
+    game_data.melee_enemies[id] = {};
+}
+
+static void RandomSpawn(size_t nMinCount, size_t nMaxCount, float flChance, std::function<size_t()> getCount, std::function<void()> spawn) {
+    auto const nCount = getCount();
+    bool bShouldSpawn = false;
+    if (nCount < nMinCount) {
+        bShouldSpawn = true;
+    } else {
+        if (nCount < nMaxCount) {
+            auto const flRand = randf();
+            if (flRand <= flChance) {
+                bShouldSpawn = true;
+            }
+        }
+    }
+
+    if (bShouldSpawn) {
+        spawn();
+    }
 }
 
 static bool LoadGame() {
@@ -228,22 +275,28 @@ Application_Result OnPreFrame(float flDelta) {
     auto const vPlayerMoveDir =
         PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_RIGHT) * lm::Vector4(1.0f, 0.0f) +
         PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_UP)    * lm::Vector4(0.0f, 1.0f) +
-        PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_LEFT) * lm::Vector4(-1.0f, 0.0f) +
-        PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_DOWN) * lm::Vector4(0.0f, -1.0f);
+        PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_LEFT)  * lm::Vector4(-1.0f, 0.0f) +
+        PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_DOWN)  * lm::Vector4(0.0f, -1.0f);
 
     // Wisp
     // Apply movement input, set sprite
     Set<Entity_ID> possessedEntities;
-    for (auto const& kv : game_data.wisps) {
-        auto& const ent = game_data.entities[kv.first];
-        auto& const hp = game_data.living[kv.first];
-        auto const& const wisp = kv.second;
-        auto& const pos = ent.position;
-        pos = pos + flDelta * vPlayerMoveDir;
+    for (auto& kvWisp : game_data.wisps) {
+        auto const iWisp = kvWisp.first;
+        auto& const entWisp = game_data.entities[iWisp];
+        auto& const wisp = kvWisp.second;
+        auto& const pos = entWisp.position;
+        pos = pos + PLAYER_SPEED * flDelta * vPlayerMoveDir;
         if (!wisp.iPossessed.has_value()) {
-            ent.hSprite = kv.second.hSprWisp;
+            entWisp.hSprite = kvWisp.second.hSprWisp;
         } else {
-            ent.hSprite = NULL;
+            entWisp.hSprite = NULL;
+
+            entWisp.size = lm::Vector4();
+
+            wisp.mementoLiving = game_data.living[iWisp];
+            game_data.living.erase(iWisp);
+
             auto id = wisp.iPossessed.value();
             auto& const possessed = game_data.entities[id];
             possessed.position = pos;
@@ -254,39 +307,18 @@ Application_Result OnPreFrame(float flDelta) {
         auto const vDist = pos - gpAppData->cameraPosition;
         gpAppData->cameraPosition = gpAppData->cameraPosition + flDelta * vDist;
 
+        // Debug UI
         if (ImGui::Begin("Player")) {
             ImGui::InputFloat4("Position", pos.m_flValues);
-            ImGui::InputFloat("Health", &hp.flHealth);
-            ImGui::InputFloat("Max health", &hp.flMaxHealth);
-        }
-        ImGui::End();
-    }
-
-    // Chaingunner
-    auto const nChaingunners = game_data.chaingunners.size();
-    bool bShouldSpawnChaingunner = false;
-    if (nChaingunners < CHAINGUNNER_MIN_SPAWNED) {
-        bShouldSpawnChaingunner = true;
-    } else {
-        if (nChaingunners < CHAINGUNNER_MAX_SPAWNED) {
-            auto const flRand = randf();
-            if (flRand <= CHAINGUNNER_SPAWN_CHANCE) {
-                bShouldSpawnChaingunner = true;
+            if (game_data.living.count(iWisp)) {
+                auto& const hp = game_data.living[iWisp];
+                ImGui::InputFloat("Health", &hp.flHealth);
+                ImGui::InputFloat("Max health", &hp.flMaxHealth);
             }
         }
-    }
-    if (bShouldSpawnChaingunner) {
-        SpawnChaingunner();
-    }
+        ImGui::End();
 
-    for (auto& kv : game_data.chaingunners) {
-        auto& ent = game_data.entities[kv.first];
-        auto& hp = game_data.living[kv.first];
-    }
-
-    for (auto& kvWisp : game_data.wisps) {
-        auto& entWisp = game_data.entities[kvWisp.first];
-
+        // Possession
         if (!kvWisp.second.iPossessed.has_value()) {
             Optional<Entity_ID> iNearest;
             float flNearest = INFINITY;
@@ -307,7 +339,70 @@ Application_Result OnPreFrame(float flDelta) {
                 }
                 // TODO(danielm): draw possession targeting aura around the entity
             }
+        } else {
+            auto iPossessed = wisp.iPossessed.value();
+            auto& living = game_data.living[iPossessed];
+            if (living.flHealth <= 0) {
+                printf("Possessed entity has died!\n");
+                // Remove possession
+                wisp.iPossessed.reset();
+                // Restore health info
+                game_data.living[iWisp] = wisp.mementoLiving;
+                // Restore size
+                entWisp.size = lm::Vector4(1, 1, 1);
+
+                game_data.corpses[iPossessed] = { 0.0f };
+                // Make it unpossessable
+                game_data.possessables.erase(iPossessed);
+                game_data.living.erase(iPossessed);
+            }
         }
+    }
+
+    // Chaingunner
+    RandomSpawn(CHAINGUNNER_MIN_SPAWNED, CHAINGUNNER_MAX_SPAWNED, CHAINGUNNER_SPAWN_CHANCE,
+        [=]() {
+            return game_data.chaingunners.size();
+    }, SpawnChaingunner);
+
+    for (auto& kv : game_data.chaingunners) {
+        auto& ent = game_data.entities[kv.first];
+        auto& hp = game_data.living[kv.first];
+    }
+
+    // Melee enemies
+    RandomSpawn(MELEE_MIN_SPAWNED, MELEE_MAX_SPAWNED, MELEE_SPAWN_CHANCE,
+        [=]() { return game_data.melee_enemies.size(); }, SpawnMelee);
+    for (auto& kvMelee : game_data.melee_enemies) {
+        auto& entMelee = kvMelee.second;
+    }
+
+    // Living
+    Set<Entity_ID> diedEntities;
+    for (auto& kvLiving : game_data.living) {
+        auto& living = kvLiving.second;
+        if (living.flHealth < 0.0f) {
+            diedEntities.insert(kvLiving.first);
+        }
+    }
+    for (auto iLiving : diedEntities) {
+        game_data.living.erase(iLiving);
+        game_data.corpses[iLiving] = {};
+        printf("Entity %llu has died, created corpse\n", iLiving);
+    }
+
+    // Corpses
+    Set<Entity_ID> expiredCorpses;
+    for (auto& kvCorpse : game_data.corpses) {
+        auto& corpse = kvCorpse.second;
+        corpse.flTimeSinceDeath += flDelta;
+        if (corpse.flTimeSinceDeath > CORPSE_DISAPPEAR_TIME) {
+            expiredCorpses.insert(kvCorpse.first);
+        }
+    }
+    for (auto& iCorpse : expiredCorpses) {
+        DeleteEntity(iCorpse);
+        printf("Removed corpse of entity %llu\n", iCorpse);
     }
 
     // Generic drawable entity
@@ -325,6 +420,8 @@ Application_Result OnPreFrame(float flDelta) {
             dq.Add(dc);
         }
     }
+
+    // Entity debug UI
     ImGui::Begin("Entities", NULL, ImGuiWindowFlags_NoCollapse);
     for (Entity_ID i = 0; i < game_data.entities.size(); i++) {
         auto& slot = game_data.entities[i];

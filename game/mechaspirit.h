@@ -32,12 +32,13 @@ struct Living {
 };
 
 struct Corpse {
-    float flTimeDeath;
+    float flTimeSinceDeath;
 };
 
 struct Wisp {
     Sprite hSprWisp;
     Optional<Entity_ID> iPossessed;
+    Living mementoLiving;
 };
 
 struct Melee_Enemy {

@@ -57,6 +57,8 @@ Sprite LoadSprite(char const* pszPath) {
 void FreeSprite(Sprite hSprite) {
     assert(hSprite != NULL);
 
+    printf("Sprite %x freed\n", hSprite);
+
     delete hSprite;
 }
 
