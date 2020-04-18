@@ -455,30 +455,15 @@ static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
     }
 
 }
-
-Application_Result OnPreFrame(float flDelta) {
-    if (gpAppData == NULL) {
-        if (!LoadGame()) {
-            return k_nApplication_Result_GeneralFailure;
-        }
-    }
-
-    auto& dq = gpAppData->dq;
-
-    // =======================
-    // Game logic
-    // =======================
-
-    auto& game_data = gpAppData->game_data;
+static inline void WispLogic(float flDelta, Game_Data& game_data) {
+    // Wisp
+    // Apply movement input, set sprite
     auto const vPlayerMoveDir =
         PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_RIGHT) * lm::Vector4(1.0f, 0.0f) +
         PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_UP)    * lm::Vector4(0.0f, 1.0f) +
         PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_LEFT)  * lm::Vector4(-1.0f, 0.0f) +
         PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_DOWN)  * lm::Vector4(0.0f, -1.0f);
 
-    // Wisp
-    // Apply movement input, set sprite
-    Set<Entity_ID> possessedEntities;
     for (auto& kvWisp : game_data.wisps) {
         auto const iWisp = kvWisp.first;
         auto& const entWisp = game_data.entities[iWisp];
@@ -498,7 +483,6 @@ Application_Result OnPreFrame(float flDelta) {
             auto id = wisp.iPossessed.value();
             auto& const possessed = game_data.entities[id];
             possessed.position = pos;
-            possessedEntities.insert(id);
         }
 
         // Follow camera
@@ -571,6 +555,24 @@ Application_Result OnPreFrame(float flDelta) {
 
         pos = pos + flCurrentSpeed * flDelta * vPlayerMoveDir;
     }
+}
+
+Application_Result OnPreFrame(float flDelta) {
+    if (gpAppData == NULL) {
+        if (!LoadGame()) {
+            return k_nApplication_Result_GeneralFailure;
+        }
+    }
+
+    auto& dq = gpAppData->dq;
+
+    // =======================
+    // Game logic
+    // =======================
+
+    auto& game_data = gpAppData->game_data;
+
+    WispLogic(flDelta, game_data);
 
     // Chaingunner
     RandomSpawn(CHAINGUNNER_MIN_SPAWNED, CHAINGUNNER_MAX_SPAWNED, CHAINGUNNER_SPAWN_CHANCE,
