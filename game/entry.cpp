@@ -219,7 +219,8 @@ int main(int argc, char** argv) {
             CHECK_QUIT();
 
             while (SDL_PollEvent(&ev)) {
-                ImGui_ImplSDL2_ProcessEvent(&ev);
+
+            bool bPassEventToImGui = true;
                 switch (ev.type) {
                 case SDL_QUIT:
                 {
@@ -227,7 +228,25 @@ int main(int argc, char** argv) {
                     break;
                 }
                 case SDL_KEYDOWN:
+                {
+                    res = OnInput(ev);
+                    CHECK_QUIT();
+                    // WORKAROUND(danielm): mod keys trigger an assertion in imgui
+                    if (ev.key.keysym.mod != 0) {
+                        bPassEventToImGui = false;
+                    }
+                    break;
+                }
                 case SDL_KEYUP:
+                {
+                    res = OnInput(ev);
+                    CHECK_QUIT();
+                    // WORKAROUND(danielm): mod keys trigger an assertion in imgui
+                    if (ev.key.keysym.mod != 0) {
+                        bPassEventToImGui = false;
+                    }
+                    break;
+                }
                 case SDL_MOUSEBUTTONDOWN:
                 case SDL_MOUSEBUTTONUP:
                 case SDL_MOUSEMOTION:
@@ -237,6 +256,10 @@ int main(int argc, char** argv) {
                     CHECK_QUIT();
                     break;
                 }
+                }
+
+                if (bPassEventToImGui) {
+                    ImGui_ImplSDL2_ProcessEvent(&ev);
                 }
             }
 

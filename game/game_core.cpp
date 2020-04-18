@@ -423,6 +423,19 @@ static void MeleeAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 c
     DbgLine(vOrigin, vOrigin + vDir);
 }
 
+static inline float ModuloRotation(float flDesiredRotation, float flRotation) {
+    float flDelta;
+
+    flDelta = flDesiredRotation - flRotation;
+
+    if (flDelta > M_PI) {
+        flDelta = flDelta - 2 * M_PI;
+    }
+
+
+    return flDelta;
+}
+
 static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
     RandomSpawn(MELEE_MIN_SPAWNED, MELEE_MAX_SPAWNED, MELEE_SPAWN_CHANCE,
         [=]() { return game_data.melee_enemies.size(); }, SpawnMelee);
@@ -451,12 +464,25 @@ static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
                 // We could be closer to the player
                 // TODO(danielm): this always makes them only rotate CCW
                 auto const flDesiredRot = atan2f(vTowardsNearest[1], vTowardsNearest[0]);
-                auto const flDeltaRot = flDesiredRot - ent.flRotation;
-                auto const flRatio = flDeltaRot / M_PI;
-                auto const flSpeedMul = 1 - flRatio;
+                auto const flRotation = ent.flRotation;
+                auto flDeltaRot = flDesiredRot - flRotation;
+                // auto const flDeltaRot = flDesiredRot - ent.flRotation;
+                auto const flRatio = abs(flDeltaRot / M_PI);
+                // ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
                 ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
                 auto const vFwd = lm::Vector4(cosf(ent.flRotation), sinf(ent.flRotation));
+                auto const vFwdD = lm::Vector4(cosf(flDesiredRot), sinf(flDesiredRot));
+                // DbgLine(ent.position, ent.position + vFwd);
+                // DbgLine(ent.position, ent.position + vFwdD);
                 ent.position = ent.position + flDelta * MELEE_MAX_SPEED * vFwd;
+
+                while (ent.flRotation > M_PI) {
+                    ent.flRotation -= 2 * M_PI;
+                }
+
+                while (ent.flRotation < -M_PI) {
+                    ent.flRotation += 2 * M_PI;
+                }
             }
 
             if (flPlayerDist <= MELEE_ATTACK_RANGE_MAX) {
