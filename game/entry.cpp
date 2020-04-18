@@ -116,7 +116,7 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
         case k_unRCMoveCamera:
         {
             auto p = cmd.move_camera.position;
-            matVP = lm::Translation(lm::Vector4(p[0], p[1], p[2])) * matProj;
+            matVP = lm::Translation(lm::Vector4(-p[0], -p[1], -p[2])) * matProj;
             break;
         }
         default:

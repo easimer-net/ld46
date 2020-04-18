@@ -134,32 +134,40 @@ static Entity_ID CreatePlayer() {
     return ret;
 }
 
+static bool LoadGame() {
+    auto program = BuildShader("generic.vert", "generic.frag");
+    if (!program) {
+        return false;
+    }
+
+    gpAppData = new Application_Data;
+
+    float const aflQuad[] = {
+        -0.5, -0.5, 0.0,    0.0, 1.0,
+        0.5, -0.5, 0.0,     1.0, 1.0,
+        -0.5, 0.5, 0.0,     0.0, 0.0,
+        0.5, 0.5, 0.0,      1.0, 0.0,
+    };
+
+    gl::Bind(gpAppData->vao);
+    gl::UploadArray(gpAppData->vbo, sizeof(aflQuad), aflQuad);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    gpAppData->shaderGeneric = program;
+
+    CreatePlayer();
+
+    return true;
+}
+
 Application_Result OnPreFrame(float flDelta) {
     if (gpAppData == NULL) {
-        auto program = BuildShader("generic.vert", "generic.frag");
-        if (!program) {
+        if (!LoadGame()) {
             return k_nApplication_Result_GeneralFailure;
         }
-
-        gpAppData = new Application_Data;
-
-        float const aflQuad[] = {
-            -0.5, -0.5, 0.0,    0.0, 1.0,
-            0.5, -0.5, 0.0,     1.0, 1.0,
-            -0.5, 0.5, 0.0,     0.0, 0.0,
-            0.5, 0.5, 0.0,      1.0, 0.0,
-        };
-
-        gl::Bind(gpAppData->vao);
-        gl::UploadArray(gpAppData->vbo, sizeof(aflQuad), aflQuad);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
-
-        gpAppData->shaderGeneric = program;
-
-        CreatePlayer();
     }
 
     // =======================
@@ -185,6 +193,11 @@ Application_Result OnPreFrame(float flDelta) {
         } else {
             ent.hSprite = NULL;
         }
+
+        // Follow camera
+        auto const vDist = pos - gpAppData->cameraPosition;
+        gpAppData->cameraPosition = gpAppData->cameraPosition + flDelta * vDist;
+
     }
 
     // Generic drawable entity
@@ -229,8 +242,18 @@ Application_Result OnInput(SDL_Event const& ev) {
     return k_nApplication_Result_OK;
 }
 
+static void DbgDisp(char const* pszLabel, lm::Vector4& v, bool bWriteable = false) {
+    ImGuiInputTextFlags flags = 0;
+    if (!bWriteable) {
+        flags |= ImGuiInputTextFlags_ReadOnly;
+    }
+    ImGui::InputFloat4(pszLabel, v.m_flValues, 5, flags);
+}
+
 Application_Result OnDraw(rq::Render_Queue* pQueue) {
-    if (ImGui::Begin("Test")) {
+    if (ImGui::Begin("gpAppData")) {
+        DbgDisp("cameraPosition", gpAppData->cameraPosition);
+        ImGui::InputInt("playerMoveDir", (int*)&gpAppData->playerMoveDir);
     }
     ImGui::End();
     rq::Render_Command rc;
