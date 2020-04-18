@@ -241,7 +241,7 @@ static Entity_ID CreatePlayer() {
         PLAYER_MAX_HEALTH,
     };
 
-    game_data.wisps[ret] = {LoadSprite("wisp.png")};
+    game_data.wisps[ret] = {LoadSprite("data/wisp.png")};
 
     return ret;
 }
@@ -253,7 +253,7 @@ static void SpawnChaingunner() {
     auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
     ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
     ent.size = lm::Vector4(1, 1, 1);
-    ent.hSprite = LoadSprite("hmecha.png");
+    ent.hSprite = LoadSprite("data/hmecha.png");
     game_data.chaingunners[id] = {};
     game_data.living[id] = { CHAINGUNNER_MAX_HEALTH, CHAINGUNNER_MAX_HEALTH };
     game_data.possessables[id] = { 
@@ -270,7 +270,7 @@ static void SpawnMelee() {
     auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
     ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
     ent.size = lm::Vector4(1, 1, 1);
-    ent.hSprite = LoadSprite("melee.png");
+    ent.hSprite = LoadSprite("data/melee.png");
     game_data.living[id] = {10, 10};
     game_data.melee_enemies[id] = {};
 }
@@ -309,7 +309,7 @@ static void DbgLine(lm::Vector4 p0, lm::Vector4 p1) {
 }
 
 static bool LoadGame() {
-    auto program = BuildShader("generic.vert", "generic.frag");
+    auto program = BuildShader("shaders/generic.vert", "shaders/generic.frag");
     if (!program) {
         return false;
     }
@@ -334,10 +334,10 @@ static bool LoadGame() {
 
     gpAppData->shaderGeneric = program;
 
-    program = BuildShader("debug_red.vert", "debug_red.frag");
+    program = BuildShader("shaders/debug_red.vert", "shaders/debug_red.frag");
     gpAppData->shaderDebugRed = program;
 
-    program = BuildShader("rect.vert", "rect.frag");
+    program = BuildShader("shaders/rect.vert", "shaders/rect.frag");
     gpAppData->shaderRect = program;
 
     CreatePlayer();
