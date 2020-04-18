@@ -6,6 +6,7 @@ set(SRC
 	shaders.h
 	stb_image.h
 	textures.h
+	mechaspirit.h
 
 	entry.cpp
 	game_core.cpp

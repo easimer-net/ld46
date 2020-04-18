@@ -44,7 +44,8 @@ namespace rq {
     struct Draw_Triangle_Strip_Params {
         GLuint vao;
         size_t count;
-        float position[3];
+        float x, y;
+        float width, height;
     };
 
     struct Change_Program_Params {
@@ -61,7 +62,7 @@ namespace rq {
     };
 
     struct Move_Camera_Params {
-        float position[3];
+        float position[2];
     };
 
     struct Render_Command {

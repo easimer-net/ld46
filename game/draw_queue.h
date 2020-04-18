@@ -17,7 +17,8 @@ namespace dq {
 
     struct Draw_World_Thing_Params {
         Sprite hSprite;
-        lm::Vector4 vWorldOff;
+        float x, y;
+        float width, height;
     };
 
     struct Draw_Command {

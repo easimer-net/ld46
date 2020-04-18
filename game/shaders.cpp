@@ -29,8 +29,9 @@ static std::optional<gl::Shader<kType>> FromFileLoadShader(char const* pszPath) 
         if (CompileShaderFromString(shader, ss.str().c_str())) {
             return shader;
         }
+    } else {
+        printf("Failed to open shader '%s' for opening!\n", pszPath);
     }
-
 
     return {};
 }

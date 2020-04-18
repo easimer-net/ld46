@@ -73,7 +73,9 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
     Shader_Program hCurrentProgram = NULL;
 
     lm::Matrix4 matProj, matProjInv, matVP, matMVP;
-    lm::Perspective(matProj, matProjInv, r.width, r.height, 1.57079633f, 0.1, 1000.0);
+    //lm::Perspective(matProj, matProjInv, r.width, r.height, 1.57079633f, 0.1, 1000.0);
+    float const flAspect = r.height / (float)r.width;
+    matProj = lm::Scale(flAspect, 1, 0); // ortho
 
     matVP = matProj;
 
@@ -87,9 +89,9 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
         case k_unRCDrawTriangleStrip:
         {
             // TODO(danielm): offset
-            auto p = cmd.draw_triangle_strip.position;
-            auto vPos = lm::Vector4(p[0], p[1], p[2]);
-            matMVP = lm::Translation(vPos) * matVP;
+            auto const& ts = cmd.draw_triangle_strip;
+            auto vPos = lm::Vector4(ts.x, ts.y, 0);
+            matMVP = lm::Translation(vPos) * lm::Scale(ts.width, ts.height, 1) * matVP;
             SetShaderMVP(hCurrentProgram, matMVP);
             glBindVertexArray(cmd.draw_triangle_strip.vao);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, cmd.draw_triangle_strip.count);

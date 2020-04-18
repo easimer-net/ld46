@@ -24,10 +24,13 @@ Sprite LoadSprite(char const* pszPath) {
     unsigned unWidth, unHeight;
     gl::Format kFmt;
 
-    pData = stbi_load(pszPath, &nWidth, &nHeight, &nChannels, STBI_rgb);
+    pData = stbi_load(pszPath, &nWidth, &nHeight, &nChannels, STBI_default);
 
     if (pData != NULL) {
         ret = new Sprite_;
+
+        // TODO(danielm): cache images
+        printf("Loaded image file '%s' %dx%dx%d\n", pszPath, nWidth, nHeight, nChannels);
 
         if (nChannels == 3) {
             kFmt = gl::Format::RGB;
