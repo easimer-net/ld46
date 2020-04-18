@@ -24,6 +24,7 @@ namespace rq {
         k_unRCDrawTriangleStrip,
         k_unRCMoveCamera,
         k_unRCDrawLine,
+        k_unRCDrawRect,
         k_unRCMax
     };
 
@@ -71,6 +72,13 @@ namespace rq {
         float flZoom;
     };
 
+    struct Draw_Rect_Params {
+        GLuint vao;
+        float x0, y0;
+        float sx, sy;
+        float r, g, b;
+    };
+
     struct Render_Command {
         Render_Command_Kind kind;
         union {
@@ -82,6 +90,7 @@ namespace rq {
             Draw_Triangle_Strip_Params draw_triangle_strip;
             Move_Camera_Params move_camera;
             Draw_Line_Params draw_line;
+            Draw_Rect_Params draw_rect;
         };
     };
 

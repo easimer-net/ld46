@@ -54,19 +54,28 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define MELEE_MIN_SPAWNED (1)
 #define MELEE_MAX_SPAWNED (3)
 #define MELEE_SPAWN_CHANCE (0.50f)
-#define MELEE_PLAYER_DIST (1.5f)
 #define MELEE_MAX_SPEED (1.5f)
 #define MELEE_MAX_ROT_SPEED (3.1415926f)
+#define MELEE_ATTACK_RANGE_MIN (1.25f)
+#define MELEE_ATTACK_RANGE_MAX (1.5f)
+#define MELEE_ATTACK_DAMAGE (1.0f)
 
 #define RANGED_MIN_SPAWNED (0)
 #define RANGED_MAX_SPAWNED (2)
 #define RANGED_SPAWN_CHANGE (0.25f)
-#define RANGED_PLAYER_DIST (4.5f)
+#define MELEE_ATTACK_RANGE_MIN (4.0f)
+#define MELEE_ATTACK_RANGE_MAX (4.5f)
 
 #define CORPSE_DISAPPEAR_TIME (8.0f)
 
+#define HPBAR_OFF_Y (1.25f)
+#define HPBAR_SIZ_Y (0.5f)
+#define HPBAR_OFF_Y_TOP (HPBAR_OFF_Y)
+#define HPBAR_OFF_Y_BOT (HPBAR_OFF_Y - HPBAR_SIZ_Y)
+#define HPBAR_SIZ_X (4.0f)
+
 struct Application_Data {
-    Shader_Program shaderGeneric, shaderDebugRed;
+    Shader_Program shaderGeneric, shaderDebugRed, shaderRect;
     gl::VAO vao;
     gl::VBO vbo;
 
@@ -147,6 +156,28 @@ static rq::Render_Queue Translate(dq::Draw_Queue const& dq) {
         }
     }
 
+    rc.kind = rq::k_unRCChangeProgram;
+    rc.change_program.program = gpAppData->shaderRect;
+    rq.Add(rc);
+
+    rc.kind = rq::k_unRCDrawRect;
+    auto& draw_rect = rc.draw_rect;
+    for (auto const& cmd : dq) {
+        switch (cmd.kind) {
+        case k_unDCDrawRect:
+            draw_rect.r = cmd.draw_rect.r;
+            draw_rect.g = cmd.draw_rect.g;
+            draw_rect.b = cmd.draw_rect.b;
+            draw_rect.sx = cmd.draw_rect.x1 - cmd.draw_line.x0;
+            draw_rect.sy = cmd.draw_rect.y1 - cmd.draw_line.y0;
+            draw_rect.x0 = cmd.draw_rect.x0 + draw_rect.sx * 0.5f;
+            draw_rect.y0 = cmd.draw_rect.y0 + draw_rect.sy * 0.5f;
+            draw_rect.vao = gpAppData->vao;
+            rq.Add(rc);
+            break;
+        }
+    }
+
     return rq;
 }
 
@@ -181,7 +212,9 @@ static void DeleteEntity(Entity_ID id) {
     auto& game_data = gpAppData->game_data;
     if (id < game_data.entities.size()) {
         auto& ent = game_data.entities[id];
-        FreeSprite(ent.hSprite);
+        if (ent.hSprite != NULL) {
+            FreeSprite(ent.hSprite);
+        }
         ent.bUsed = false;
 
         game_data.living.erase(id);
@@ -301,6 +334,9 @@ static bool LoadGame() {
     program = BuildShader("debug_red.vert", "debug_red.frag");
     gpAppData->shaderDebugRed = program;
 
+    program = BuildShader("rect.vert", "rect.frag");
+    gpAppData->shaderRect = program;
+
     CreatePlayer();
 
     return true;
@@ -339,6 +375,85 @@ static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir) 
         living.flHealth -= 1.0f;
         printf("Ent %llu damaged by 1\n", iLiving);
     }
+}
+
+static void MeleeAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 const& vDir) {
+    auto& game_data = gpAppData->game_data;
+    Collision_World cw;
+    auto const ray = Collision_Ray{ vOrigin, vDir };
+
+    Set<Entity_ID> collisionParticipants;
+
+    for (auto& kvLiving : game_data.living) {
+        auto const& ent = game_data.entities[kvLiving.first];
+        if (ent.bUsed) {
+            Collision_AABB bb;
+            bb.id = kvLiving.first;
+            auto vHalfSize = ent.size / 2;
+            bb.min = ent.position - vHalfSize;
+            bb.max = ent.position + vHalfSize;
+            cw.push_back(bb);
+        }
+    }
+
+    auto res = CheckCollisions(cw, ray);
+
+    for (auto coll : res) {
+        assert(game_data.living.count(coll) > 0);
+
+        if (coll != iMe) {
+            auto& living = game_data.living[coll];
+            living.flHealth -= MELEE_ATTACK_DAMAGE;
+            printf("Melee: ent %llu damaged by 1\n", coll);
+        }
+    }
+
+    DbgLine(vOrigin, vOrigin + vDir);
+}
+
+static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
+    RandomSpawn(MELEE_MIN_SPAWNED, MELEE_MAX_SPAWNED, MELEE_SPAWN_CHANCE,
+        [=]() { return game_data.melee_enemies.size(); }, SpawnMelee);
+    for (auto& kvMelee : game_data.melee_enemies) {
+        auto& entMelee = kvMelee.second;
+        auto& ent = game_data.entities[kvMelee.first];
+        auto pos = ent.position;
+
+        Optional<Entity_ID> iNearestPlayer;
+        float flPlayerDist = INFINITY;
+        lm::Vector4 vTowardsNearest;
+
+        for (auto& kvWisp : game_data.wisps) {
+            auto& entWisp = game_data.entities[kvWisp.first];
+            auto vDir = entWisp.position - pos;
+            auto flDist = lm::LengthSq(vDir);
+            if (flDist < flPlayerDist) {
+                iNearestPlayer = kvWisp.first;
+                flPlayerDist = flDist;
+                vTowardsNearest = vDir;
+            }
+        }
+
+        if (iNearestPlayer.has_value()) {
+            if (flPlayerDist > MELEE_ATTACK_RANGE_MIN) {
+                // We could be closer to the player
+                // TODO(danielm): this always makes them only rotate CCW
+                auto const flDesiredRot = atan2f(vTowardsNearest[1], vTowardsNearest[0]);
+                auto const flDeltaRot = flDesiredRot - ent.flRotation;
+                auto const flRatio = flDeltaRot / M_PI;
+                auto const flSpeedMul = 1 - flRatio;
+                ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
+                auto const vFwd = lm::Vector4(cosf(ent.flRotation), sinf(ent.flRotation));
+                ent.position = ent.position + flDelta * MELEE_MAX_SPEED * vFwd;
+            }
+
+            if (flPlayerDist <= MELEE_ATTACK_RANGE_MAX) {
+                // Close enough to the player to attack
+                MeleeAttack(kvMelee.first, ent.position, lm::Normalized(vTowardsNearest));
+            }
+        }
+    }
+
 }
 
 Application_Result OnPreFrame(float flDelta) {
@@ -475,53 +590,41 @@ Application_Result OnPreFrame(float flDelta) {
     }
 
     // Melee enemies
-    RandomSpawn(MELEE_MIN_SPAWNED, MELEE_MAX_SPAWNED, MELEE_SPAWN_CHANCE,
-        [=]() { return game_data.melee_enemies.size(); }, SpawnMelee);
-    for (auto& kvMelee : game_data.melee_enemies) {
-        auto& entMelee = kvMelee.second;
-        auto& ent = game_data.entities[kvMelee.first];
-        auto pos = ent.position;
-
-        Optional<Entity_ID> iNearestPlayer;
-        float flPlayerDist = INFINITY;
-        lm::Vector4 vTowardsNearest;
-
-        for (auto& kvWisp : game_data.wisps) {
-            auto& entWisp = game_data.entities[kvWisp.first];
-            auto vDir = entWisp.position - pos;
-            auto flDist = lm::LengthSq(vDir);
-            if (flDist < flPlayerDist) {
-                iNearestPlayer = kvWisp.first;
-                flPlayerDist = flDist;
-                vTowardsNearest = vDir;
-            }
-        }
-
-        if (iNearestPlayer.has_value()) {
-            // TODO(danielm): this always makes them only rotate CCW
-            auto const flDesiredRot = atan2f(vTowardsNearest[1], vTowardsNearest[0]);
-            auto const flDeltaRot = flDesiredRot - ent.flRotation;
-            auto const flRatio = flDeltaRot / M_PI;
-            auto const flSpeedMul = 1 - flRatio;
-            ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
-            auto const vFwd = lm::Vector4(cosf(ent.flRotation), sinf(ent.flRotation));
-            ent.position = ent.position + flDelta * MELEE_MAX_SPEED * vFwd;
-        }
-    }
+    MeleeLogic(flDelta, game_data);
 
     // Living
     Set<Entity_ID> diedEntities;
     for (auto& kvLiving : game_data.living) {
+        auto& ent = game_data.entities[kvLiving.first];
         auto& living = kvLiving.second;
         if (living.flHealth < 0.0f) {
             diedEntities.insert(kvLiving.first);
         }
+
+        float const flHpPercent = living.flHealth / living.flMaxHealth;
+        dq::Draw_Command dc;
+        dc.kind = dq::k_unDCDrawRect;
+        auto& r = dc.draw_rect;
+        r.r = 0.6f; r.g = 0.0f; r.b = 0.0f;
+        r.x0 = ent.position[0];
+        r.y0 = ent.position[1] + HPBAR_OFF_Y_TOP;
+        r.x1 = ent.position[0] + HPBAR_SIZ_X;
+        r.y1 = ent.position[1] + HPBAR_OFF_Y_BOT;
+        dq.Add(dc);
+        r.r = 0.0f; r.g = 1.0f; r.b = 0.0f;
+        r.x0 = ent.position[0];
+        r.y0 = ent.position[1] + HPBAR_OFF_Y_TOP;
+        r.x1 = ent.position[0] + HPBAR_SIZ_X * flHpPercent;
+        r.y1 = ent.position[1] + HPBAR_OFF_Y_BOT;
+        dq.Add(dc);
     }
     for (auto iLiving : diedEntities) {
         game_data.living.erase(iLiving);
         game_data.corpses[iLiving] = {};
         game_data.melee_enemies.erase(iLiving);
         game_data.ranged_enemies.erase(iLiving);
+        game_data.wisps.erase(iLiving);
+        game_data.possessables.erase(iLiving);
         printf("Entity %llu has died, created corpse\n", iLiving);
     }
 

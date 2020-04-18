@@ -14,5 +14,6 @@ Shader_Program BuildShader(const char* pszPathVertex, const char* pszPathFragmen
 void FreeShader(Shader_Program hProgram);
 void UseShader(Shader_Program hProgram);
 
-// Shader program must be active before calling this
+// Shader program must be active before calling these
 void SetShaderMVP(Shader_Program hProgram, lm::Matrix4 const& matMVP);
+void SetShaderVertexColor(Shader_Program hProgram, lm::Vector4 const& vColor);

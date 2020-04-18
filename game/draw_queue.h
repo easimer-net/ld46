@@ -13,6 +13,7 @@ namespace dq {
         k_unDCInvalid = 0,
         k_unDCDrawWorldThing,
         k_unDCDrawLine,
+        k_unDCDrawRect,
         k_unDCMax
     };
 
@@ -27,11 +28,18 @@ namespace dq {
         float x1, y1;
     };
 
+    struct Draw_Rect_Params {
+        float x0, y0;
+        float x1, y1;
+        float r, g, b;
+    };
+
     struct Draw_Command {
         Draw_Command_Kind kind;
         union {
             Draw_World_Thing_Params draw_world_thing;
             Draw_Line_Params draw_line;
+            Draw_Rect_Params draw_rect;
         };
     };
 

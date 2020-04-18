@@ -11,11 +11,12 @@
 #include <sstream>
 
 #define LOCNAME_MVP "matMVP"
+#define LOCNAME_VTXCOL "vColor"
 
 struct Shader_Program_ {
     gl::Shader_Program program;
 
-    std::optional<GLint> iLocMVP;
+    std::optional<GLint> iLocMVP, iLocVtxCol;
 };
 
 template<GLenum kType>
@@ -69,4 +70,14 @@ void SetShaderMVP(Shader_Program hProgram, lm::Matrix4 const& matMVP) {
     }
 
     glUniformMatrix4fv(hProgram->iLocMVP.value(), 1, GL_FALSE, matMVP.Data());
+}
+
+void SetShaderVertexColor(Shader_Program hProgram, lm::Vector4 const& vColor) {
+    assert(hProgram != NULL);
+
+    if (!hProgram->iLocVtxCol.has_value()) {
+        hProgram->iLocVtxCol = glGetUniformLocation(hProgram->program, LOCNAME_VTXCOL);
+    }
+
+    glUniform4fv(hProgram->iLocVtxCol.value(), 1, vColor.m_flValues);
 }

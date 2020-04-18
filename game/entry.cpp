@@ -90,10 +90,9 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
         }
         case k_unRCDrawTriangleStrip:
         {
-            // TODO(danielm): offset
             auto const& ts = cmd.draw_triangle_strip;
             auto vPos = lm::Vector4(ts.x, ts.y, 0);
-            matMVP = lm::Translation(vPos) * lm::Scale(ts.width, ts.height, 1) * matVP;
+            matMVP = lm::Scale(ts.width, ts.height, 1) * lm::Translation(vPos) * matVP;
             SetShaderMVP(hCurrentProgram, matMVP);
             glBindVertexArray(cmd.draw_triangle_strip.vao);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, cmd.draw_triangle_strip.count);
@@ -147,6 +146,18 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
             glDrawArrays(GL_LINES, 0, 2);
             glDeleteVertexArrays(1, &uiArr);
             glDeleteBuffers(1, &uiBuf);
+            break;
+        }
+        case k_unRCDrawRect:
+        {
+            auto const& ts = cmd.draw_rect;
+            auto vPos = lm::Vector4(ts.x0, ts.y0, 0);
+            matMVP = lm::Scale(ts.sx, ts.sy, 1) * lm::Translation(vPos) * matVP;
+            auto const vColor = lm::Vector4(ts.r, ts.g, ts.b, 1.0f);
+            SetShaderMVP(hCurrentProgram, matMVP);
+            SetShaderVertexColor(hCurrentProgram, vColor);
+            glBindVertexArray(ts.vao);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             break;
         }
         default:
