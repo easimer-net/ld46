@@ -12,6 +12,7 @@
 #include "shaders.h"
 #include "mechaspirit.h"
 #include "collision.h"
+#include "animator.h"
 
 #include <unordered_set>
 
@@ -111,6 +112,8 @@ struct Application_Data {
     lm::Vector4 cursorWorldPos;
 
     Collision_Level_Geometry levelGeometry;
+
+    Animation_Collection hAnimChaingunner;
 };
 
 static Application_Data* gpAppData = NULL;
@@ -260,6 +263,10 @@ static Entity_ID CreatePlayer() {
     return ret;
 }
 
+static char ChaingunnerASTF(Entity_ID iEnt, char chCurrent) {
+    return 'i';
+}
+
 static void SpawnChaingunner() {
     auto& game_data = gpAppData->game_data;
     auto id = AllocateEntity();
@@ -267,13 +274,19 @@ static void SpawnChaingunner() {
     auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
     ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
     ent.size = lm::Vector4(1, 1, 1);
-    ent.hSprite = LoadSprite("data/hmecha.png");
+    ent.hSprite = NULL;
     game_data.chaingunners[id] = {};
     game_data.living[id] = { CHAINGUNNER_MAX_HEALTH, CHAINGUNNER_MAX_HEALTH };
     game_data.possessables[id] = { 
         CHAINGUNNER_MAX_SPEED,
         CHAINGUNNER_PRIMARY_DAMAGE,
         CHAINGUNNER_PRIMARY_COOLDOWN, CHAINGUNNER_PRIMARY_COOLDOWN,
+    };
+    game_data.animated[id] = {
+        gpAppData->hAnimChaingunner,
+        'i',
+        ChaingunnerASTF,
+        0, 0.0f,
     };
     printf("Spawned chaingunner\n");
 }
@@ -353,6 +366,21 @@ static void DbgLine(lm::Vector4 p0, lm::Vector4 p1) {
     DbgLine(p0[0], p0[1], p1[0], p1[1]);
 }
 
+static Animation_Collection BuildChaingunnerAnimations() {
+    auto ret = CreateAnimator();
+
+    LoadAnimationFrame(ret, 'i', k_unDir_NorthEast, 0, "data/hmecha_idle_ne_001.png");
+    LoadAnimationFrame(ret, 'i', k_unDir_NorthEast, 1, "data/hmecha_idle_ne_002.png");
+
+    LoadAnimationFrame(ret, 'i', k_unDir_NorthWest, 0, "data/hmecha_idle_nw_001.png");
+    LoadAnimationFrame(ret, 'i', k_unDir_NorthWest, 1, "data/hmecha_idle_nw_002.png");
+
+    LoadAnimationFrame(ret, 'i', k_unDir_SouthWest, 0, "data/test.png");
+    LoadAnimationFrame(ret, 'i', k_unDir_SouthEast, 0, "data/test.png");
+
+    return ret;
+}
+
 static bool LoadGame() {
     auto program = BuildShader("shaders/generic.vert", "shaders/generic.frag");
     if (!program) {
@@ -402,6 +430,8 @@ static bool LoadGame() {
         {br, tr + right},   // right
         {tl, tr + up},      // top
     };
+
+    gpAppData->hAnimChaingunner = BuildChaingunnerAnimations();
 
     return true;
 }
@@ -665,6 +695,9 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
         auto& const pos = entWisp.position;
         lm::Vector4 newPos = pos;
         float flCurrentSpeed;
+        auto const vLookDir = lm::Normalized(gpAppData->cursorWorldPos - entWisp.position);
+
+        entWisp.flRotation = atan2f(vLookDir[1], vLookDir[0]);
 
         wisp.flDashCooldown -= flDelta;
 
@@ -698,6 +731,7 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
             }
 
             possessed.position = pos;
+            possessed.flRotation = entWisp.flRotation;
         }
 
         // Follow camera
@@ -768,7 +802,7 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
                     if (possessed.flPrimaryCooldown <= 0.0f) {
                         possessed.flPrimaryCooldown = possessed.flMaxPrimaryCooldown;
                         DbgLine(entWisp.position, gpAppData->cursorWorldPos);
-                        PlayerGunShoot(entWisp.position, lm::Normalized(gpAppData->cursorWorldPos - entWisp.position), possessed.flPrimaryDamage);
+                        PlayerGunShoot(entWisp.position, vLookDir, possessed.flPrimaryDamage);
                     }
                 }
             }
@@ -787,6 +821,56 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
     }
 
     gpAppData->bPlayerDash = false;
+}
+
+static inline void AnimatedLogic(float flDelta, Game_Data& game_data) {
+    ImGui::Begin("Animated", NULL, ImGuiWindowFlags_NoCollapse);
+    for (auto& kvAnim : game_data.animated) {
+        auto iEnt = kvAnim.first;
+        auto& animated = kvAnim.second;
+        auto& ent = game_data.entities[iEnt];
+        Sprite_Direction kDir;
+        bool bLooped = false;
+        assert(ent.bUsed);
+
+        ImGui::Separator();
+        ImGui::Text("#%llu", iEnt);
+
+        animated.flTimer += flDelta;
+        while (animated.flTimer > 1 / 4.0f) {
+            animated.iFrame++;
+            animated.flTimer -= 1 / 4.0f;
+        }
+
+        ImGui::Text("Timer: %f", animated.flTimer);
+        ImGui::Text("Frame: %u", animated.iFrame);
+
+        if (ent.flRotation >= 0.0f && ent.flRotation < M_PI / 2) {
+            kDir = k_unDir_NorthEast;
+        } else if (M_PI / 2 <= ent.flRotation && ent.flRotation < M_PI) {
+            kDir = k_unDir_NorthWest;
+        } else if (M_PI <= ent.flRotation && ent.flRotation < M_PI * 1.5f) {
+            kDir = k_unDir_SouthWest;
+        } else {
+            kDir = k_unDir_SouthEast;
+        }
+
+        ImGui::Text("Direction: %u", kDir);
+        ImGui::Text("Current anim: %c", animated.chCurrent);
+
+        // TODO(danielm): we desperately need that fucking RAII refcount system because
+        // this gonna cause so much leaks and double frees
+        ent.hSprite = GetAnimationFrame(animated.anims, animated.chCurrent, kDir, animated.iFrame, &bLooped);
+
+        if (bLooped) {
+            if (animated.pFunc != NULL) {
+                char chNextAnim = animated.pFunc(iEnt, animated.chCurrent);
+                animated.chCurrent = chNextAnim;
+                animated.iFrame = 0;
+            }
+        }
+    }
+    ImGui::End();
 }
 
 Application_Result OnPreFrame(float flDelta) {
@@ -887,6 +971,9 @@ Application_Result OnPreFrame(float flDelta) {
         DeleteEntity(iCorpse);
         printf("Removed corpse of entity %llu\n", iCorpse);
     }
+
+    // Animated
+    AnimatedLogic(flDelta, game_data);
 
     // Generic drawable entity
     // Find entities with valid sprite data

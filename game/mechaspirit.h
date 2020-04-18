@@ -13,6 +13,7 @@
 
 #include <utils/linear_math.h>
 #include "textures.h"
+#include "animator.h"
 
 using Entity_ID = size_t;
 template<typename T> using Optional = std::optional<T>;
@@ -70,6 +71,15 @@ struct Chaingunner {
 struct Railgunner {
 };
 
+struct Animated {
+    Animation_Collection anims;
+    char chCurrent;
+    using State_Transition_Function = char (*)(Entity_ID iEnt, char chCurrent);
+    State_Transition_Function pFunc;
+    unsigned iFrame;
+    float flTimer;
+};
+
 struct Game_Data {
     template<typename V> using Vector = std::vector<V>;
     template<typename K, typename V> using Map = std::unordered_map<K, V>;
@@ -84,4 +94,5 @@ struct Game_Data {
     E_Map<Possessable> possessables;
     E_Map<Chaingunner> chaingunners;
     E_Map<Railgunner> railgunners;
+    E_Map<Animated> animated;
 };
