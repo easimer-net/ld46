@@ -12,6 +12,11 @@
 #include "shaders.h"
 #include "mechaspirit.h"
 
+#include <unordered_set>
+
+template<typename T>
+using Set = std::unordered_set<T>;
+
 #include <imgui.h>
 
 #define PLAYER_MOVEDIR_RIGHT    (0x1)
@@ -36,6 +41,8 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define SPAWN_ARENA_MIN lm::Vector4(-10, -10)
 #define SPAWN_ARENA_MAX lm::Vector4(10, 10)
 
+#define MIN_POSSESSION_DIST (1)
+
 struct Application_Data {
     Shader_Program shaderGeneric;
     gl::VAO vao;
@@ -48,6 +55,10 @@ struct Application_Data {
     dq::Draw_Queue dq;
 
     Game_Data game_data;
+
+    bool bPlayerWantsToPossess = false;
+    bool bPlayerPrimaryAttack = false;
+    bool bPlayerSecondaryAttack = false;
 };
 
 static Application_Data* gpAppData = NULL;
@@ -134,6 +145,8 @@ static void DeleteEntity(Entity_ID id) {
         game_data.wisps.erase(id);
         game_data.melee_enemies.erase(id);
         game_data.ranged_enemies.erase(id);
+        game_data.possessables.erase(id);
+        game_data.chaingunners.erase(id);
     }
 }
 
@@ -163,6 +176,7 @@ static void SpawnChaingunner() {
     ent.hSprite = LoadSprite("hmecha.png");
     game_data.chaingunners[id] = {};
     game_data.living[id] = {};
+    game_data.possessables[id] = {};
     printf("Spawned chaingunner\n");
 }
 
@@ -204,6 +218,8 @@ Application_Result OnPreFrame(float flDelta) {
         }
     }
 
+    auto& dq = gpAppData->dq;
+
     // =======================
     // Game logic
     // =======================
@@ -217,6 +233,7 @@ Application_Result OnPreFrame(float flDelta) {
 
     // Wisp
     // Apply movement input, set sprite
+    Set<Entity_ID> possessedEntities;
     for (auto const& kv : game_data.wisps) {
         auto& const ent = game_data.entities[kv.first];
         auto& const hp = game_data.living[kv.first];
@@ -227,8 +244,10 @@ Application_Result OnPreFrame(float flDelta) {
             ent.hSprite = kv.second.hSprWisp;
         } else {
             ent.hSprite = NULL;
-            auto& const possessed = game_data.entities[wisp.iPossessed.value()];
+            auto id = wisp.iPossessed.value();
+            auto& const possessed = game_data.entities[id];
             possessed.position = pos;
+            possessedEntities.insert(id);
         }
 
         // Follow camera
@@ -265,9 +284,34 @@ Application_Result OnPreFrame(float flDelta) {
         auto& hp = game_data.living[kv.first];
     }
 
+    for (auto& kvWisp : game_data.wisps) {
+        auto& entWisp = game_data.entities[kvWisp.first];
+
+        if (!kvWisp.second.iPossessed.has_value()) {
+            Optional<Entity_ID> iNearest;
+            float flNearest = INFINITY;
+            for (auto& kvPossessable : game_data.possessables) {
+                auto& ent = game_data.entities[kvPossessable.first];
+                auto const flDist = lm::LengthSq(ent.position - entWisp.position);
+                if (flDist < flNearest) {
+                    iNearest = kvPossessable.first;
+                    flNearest = flDist;
+                }
+            }
+
+            // we calculate squared distance above
+            if (flNearest < MIN_POSSESSION_DIST * MIN_POSSESSION_DIST) {
+                if (gpAppData->bPlayerWantsToPossess) {
+                    kvWisp.second.iPossessed = iNearest.value();
+                    printf("Wisp %llu possessed entity %llu\n", kvWisp.first, iNearest.value());
+                }
+                // TODO(danielm): draw possession targeting aura around the entity
+            }
+        }
+    }
+
     // Generic drawable entity
     // Find entities with valid sprite data
-    auto& dq = gpAppData->dq;
 
     for (auto const& ent : game_data.entities) {
         if (ent.bUsed && ent.hSprite != NULL) {
@@ -314,6 +358,9 @@ Application_Result OnInput(SDL_Event const& ev) {
             break;
         case SDLK_d:
             PLAYER_MOVEDIR_SET(PLAYER_MOVEDIR_RIGHT, bDown);
+            break;
+        case SDLK_e:
+            gpAppData->bPlayerWantsToPossess = bDown;
             break;
         }
     } else if (ev.type == SDL_MOUSEWHEEL) {

@@ -46,6 +46,8 @@ struct Melee_Enemy {
 struct Ranged_Enemy {
 };
 
+struct Possessable {};
+
 struct Chaingunner {
     float flCooldown;
 };
@@ -65,5 +67,6 @@ struct Game_Data {
     E_Map<Wisp> wisps;
     E_Map<Melee_Enemy> melee_enemies;
     E_Map<Ranged_Enemy> ranged_enemies;
+    E_Map<Possessable> possessables;
     E_Map<Chaingunner> chaingunners;
 };
