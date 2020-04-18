@@ -30,3 +30,28 @@ CheckCollisions(Collision_World const& world, Collision_Ray const& ray) {
 
     return ret;
 }
+
+Collision_Result
+CheckCollisions(Collision_Level_Geometry const& level, Collision_World const& world) {
+    Collision_Result ret;
+
+    for (auto const& ent : world) {
+        bool bCollidesWithWorld = false;
+
+        for (auto const& box : level) {
+            bCollidesWithWorld =
+                ent.min[0] <= box.max[0] && ent.max[0] >= box.min[0] &&
+                ent.min[1] <= box.max[1] && ent.max[1] >= box.min[1];
+
+            if (bCollidesWithWorld) {
+                break;
+            }
+        }
+
+        if (bCollidesWithWorld) {
+            ret.push_back(ent.id);
+        }
+    }
+
+    return ret;
+}

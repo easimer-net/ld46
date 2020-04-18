@@ -101,6 +101,8 @@ struct Application_Data {
     float flScreenWidth, flScreenHeight;
 
     lm::Vector4 cursorWorldPos;
+
+    Collision_Level_Geometry levelGeometry;
 };
 
 static Application_Data* gpAppData = NULL;
@@ -365,6 +367,12 @@ static bool LoadGame() {
 
     CreatePlayer();
 
+    Collision_Level_Geometry level_geometry;
+
+    level_geometry.push_back({ {-11, -11}, {-10, 11} });
+
+    gpAppData->levelGeometry = std::move(level_geometry);
+
     return true;
 }
 
@@ -375,7 +383,7 @@ static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, 
     for (Entity_ID id = 0; id < game_data.entities.size(); id++) {
         auto& ent = game_data.entities[id];
         if (ent.bUsed) {
-            Collision_AABB bb;
+            Collision_AABB_Entity bb;
             bb.id = id;
             auto vHalfSize = ent.size / 2;
             bb.min = ent.position - vHalfSize;
@@ -413,7 +421,7 @@ static void MeleeAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 c
     for (auto& kvLiving : game_data.living) {
         auto const& ent = game_data.entities[kvLiving.first];
         if (ent.bUsed) {
-            Collision_AABB bb;
+            Collision_AABB_Entity bb;
             bb.id = kvLiving.first;
             auto vHalfSize = ent.size / 2;
             bb.min = ent.position - vHalfSize;
@@ -623,7 +631,16 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
             }
         }
 
-        pos = pos + flCurrentSpeed * flDelta * vPlayerMoveDir;
+        auto newPos = pos + flCurrentSpeed * flDelta * vPlayerMoveDir;
+        Collision_World cw;
+        Collision_AABB_Entity bb;
+        auto vHalfSize = entWisp.size / 2;
+        bb.min = newPos - vHalfSize;
+        bb.max = newPos + vHalfSize;
+        cw.push_back(bb);
+        if (CheckCollisions(gpAppData->levelGeometry, cw).size() == 0) {
+            pos = newPos;
+        }
     }
 }
 
@@ -753,6 +770,18 @@ Application_Result OnPreFrame(float flDelta) {
         }
     }
     ImGui::End();
+
+    // Visualize level geometry
+    for (auto const& g : gpAppData->levelGeometry) {
+        dq::Draw_Command dc;
+        dc.kind = dq::k_unDCDrawRect;
+        dc.draw_rect.x0 = g.min[0];
+        dc.draw_rect.y0 = g.min[1];
+        dc.draw_rect.x1 = g.max[0];
+        dc.draw_rect.y1 = g.max[1];
+        dc.draw_rect.r = dc.draw_rect.g = dc.draw_rect.b = 1.0f;
+        dq.Add(dc);
+    }
 
     return k_nApplication_Result_OK;
 }
