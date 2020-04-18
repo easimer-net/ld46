@@ -116,7 +116,10 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
         case k_unRCMoveCamera:
         {
             auto p = cmd.move_camera.position;
-            matVP = lm::Translation(lm::Vector4(-p[0], -p[1], -p[2])) * matProj;
+            matVP = 
+                lm::Translation(lm::Vector4(-p[0], -p[1], -p[2])) *
+                lm::Scale(1 / cmd.move_camera.flZoom) *
+                matProj;
             break;
         }
         default:
@@ -167,6 +170,10 @@ int main(int argc, char** argv) {
         while (!bExit) {
             rq.Clear();
 
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplSDL2_NewFrame(R);
+            ImGui::NewFrame();
+
             auto uiTimeBeforePreFrame = SDL_GetPerformanceCounter();
             flDelta = (uiTimeBeforePreFrame - uiTimeAfterPreFrame) / (double)SDL_GetPerformanceFrequency();
             res = OnPreFrame(flDelta);
@@ -196,9 +203,6 @@ int main(int argc, char** argv) {
             }
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            ImGui_ImplOpenGL3_NewFrame();
-            ImGui_ImplSDL2_NewFrame(R);
-            ImGui::NewFrame();
 
             res = OnDraw(&rq);
             CHECK_QUIT();

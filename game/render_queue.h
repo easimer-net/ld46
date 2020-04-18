@@ -63,6 +63,7 @@ namespace rq {
 
     struct Move_Camera_Params {
         float position[2];
+        float flZoom;
     };
 
     struct Render_Command {

@@ -23,12 +23,26 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define PLAYER_MOVEDIR_GET(x) \
 (((gpAppData->playerMoveDir & (x)) != 0) ? 1.0f : 0.0f)
 
+#define CHAINGUNNER_MIN_SPAWNED (1)
+#define CHAINGUNNER_MAX_SPAWNED (2)
+#define CHAINGUNNER_SPAWN_CHANCE (0.50f)
+#define CHAINGUNNER_PRIMARY_COOLDOWN (0.05f)
+
+#define RAILGUNNER_MIN_SPAWNED (0)
+#define RAILGUNNER_MAX_SPAWNED (1)
+#define RAILGUNNER_SPAWN_CHANCE (0.35f)
+#define RAILGUNNER_PRIMARY_COOLDOWN (0.65f)
+
+#define SPAWN_ARENA_MIN lm::Vector4(-10, -10)
+#define SPAWN_ARENA_MAX lm::Vector4(10, 10)
+
 struct Application_Data {
     Shader_Program shaderGeneric;
     gl::VAO vao;
     gl::VBO vbo;
 
     lm::Vector4 cameraPosition;
+    float cameraZoom = 1.0f;
     unsigned playerMoveDir = 0;
 
     dq::Draw_Queue dq;
@@ -37,6 +51,10 @@ struct Application_Data {
 };
 
 static Application_Data* gpAppData = NULL;
+
+static float randf() {
+    return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+}
 
 static rq::Render_Queue Translate(dq::Draw_Queue const& dq) {
     using namespace dq;
@@ -50,6 +68,7 @@ static rq::Render_Queue Translate(dq::Draw_Queue const& dq) {
     rc.kind = rq::k_unRCMoveCamera;
     rc.move_camera.position[0] = gpAppData->cameraPosition[0];
     rc.move_camera.position[1] = gpAppData->cameraPosition[1];
+    rc.move_camera.flZoom = gpAppData->cameraZoom;
     rq.Add(rc);
 
     for (auto const& cmd : dq) {
@@ -134,11 +153,26 @@ static Entity_ID CreatePlayer() {
     return ret;
 }
 
+static void SpawnChaingunner() {
+    auto& game_data = gpAppData->game_data;
+    auto id = AllocateEntity();
+    auto& ent = game_data.entities[id];
+    auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
+    ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
+    ent.size = lm::Vector4(1, 1, 1);
+    ent.hSprite = LoadSprite("hmecha.png");
+    game_data.chaingunners[id] = {};
+    game_data.living[id] = {};
+    printf("Spawned chaingunner\n");
+}
+
 static bool LoadGame() {
     auto program = BuildShader("generic.vert", "generic.frag");
     if (!program) {
         return false;
     }
+
+    srand(0);
 
     gpAppData = new Application_Data;
 
@@ -184,20 +218,51 @@ Application_Result OnPreFrame(float flDelta) {
     // Wisp
     // Apply movement input, set sprite
     for (auto const& kv : game_data.wisps) {
-        auto& ent = game_data.entities[kv.first];
-        auto& wisp = kv.second;
-        auto& pos = ent.position;
+        auto& const ent = game_data.entities[kv.first];
+        auto& const hp = game_data.living[kv.first];
+        auto const& const wisp = kv.second;
+        auto& const pos = ent.position;
         pos = pos + flDelta * vPlayerMoveDir;
         if (!wisp.iPossessed.has_value()) {
             ent.hSprite = kv.second.hSprWisp;
         } else {
             ent.hSprite = NULL;
+            auto& const possessed = game_data.entities[wisp.iPossessed.value()];
+            possessed.position = pos;
         }
 
         // Follow camera
         auto const vDist = pos - gpAppData->cameraPosition;
         gpAppData->cameraPosition = gpAppData->cameraPosition + flDelta * vDist;
 
+        if (ImGui::Begin("Player")) {
+            ImGui::InputFloat4("Position", pos.m_flValues);
+            ImGui::InputFloat("Health", &hp.flHealth);
+            ImGui::InputFloat("Max health", &hp.flMaxHealth);
+        }
+        ImGui::End();
+    }
+
+    // Chaingunner
+    auto const nChaingunners = game_data.chaingunners.size();
+    bool bShouldSpawnChaingunner = false;
+    if (nChaingunners < CHAINGUNNER_MIN_SPAWNED) {
+        bShouldSpawnChaingunner = true;
+    } else {
+        if (nChaingunners < CHAINGUNNER_MAX_SPAWNED) {
+            auto const flRand = randf();
+            if (flRand <= CHAINGUNNER_SPAWN_CHANCE) {
+                bShouldSpawnChaingunner = true;
+            }
+        }
+    }
+    if (bShouldSpawnChaingunner) {
+        SpawnChaingunner();
+    }
+
+    for (auto& kv : game_data.chaingunners) {
+        auto& ent = game_data.entities[kv.first];
+        auto& hp = game_data.living[kv.first];
     }
 
     // Generic drawable entity
@@ -216,6 +281,19 @@ Application_Result OnPreFrame(float flDelta) {
             dq.Add(dc);
         }
     }
+    ImGui::Begin("Entities", NULL, ImGuiWindowFlags_NoCollapse);
+    for (Entity_ID i = 0; i < game_data.entities.size(); i++) {
+        auto& slot = game_data.entities[i];
+        if (slot.bUsed) {
+            ImGui::Separator();
+            ImGui::Text("Entity #%llu", i);
+            ImGui::InputFloat4("Position", slot.position.m_flValues, 5);
+            ImGui::InputFloat2("Size", slot.size.m_flValues, 5);
+            ImGui::InputFloat("Rotation", &slot.flRotation);
+            ImGui::Text("Sprite: %x", slot.hSprite);
+        }
+    }
+    ImGui::End();
 
     return k_nApplication_Result_OK;
 }
@@ -238,6 +316,10 @@ Application_Result OnInput(SDL_Event const& ev) {
             PLAYER_MOVEDIR_SET(PLAYER_MOVEDIR_RIGHT, bDown);
             break;
         }
+    } else if (ev.type == SDL_MOUSEWHEEL) {
+        gpAppData->cameraZoom -= ev.wheel.y;
+        if (gpAppData->cameraZoom < 1) gpAppData->cameraZoom = 1;
+        if (gpAppData->cameraZoom > 64) gpAppData->cameraZoom = 64;
     }
     return k_nApplication_Result_OK;
 }

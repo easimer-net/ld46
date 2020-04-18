@@ -9,6 +9,7 @@
 #include <vector>
 #include <unordered_map>
 #include <optional>
+#include <variant>
 
 #include <utils/linear_math.h>
 #include "textures.h"
@@ -45,6 +46,14 @@ struct Melee_Enemy {
 struct Ranged_Enemy {
 };
 
+struct Chaingunner {
+    float flCooldown;
+};
+
+struct Railgunner {
+    float flCooldown;
+};
+
 struct Game_Data {
     template<typename V> using Vector = std::vector<V>;
     template<typename K, typename V> using Map = std::unordered_map<K, V>;
@@ -56,4 +65,5 @@ struct Game_Data {
     E_Map<Wisp> wisps;
     E_Map<Melee_Enemy> melee_enemies;
     E_Map<Ranged_Enemy> ranged_enemies;
+    E_Map<Chaingunner> chaingunners;
 };
