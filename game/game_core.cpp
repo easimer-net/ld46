@@ -282,8 +282,8 @@ static void DrawBackground(dq::Draw_Queue& dq) {
     dq::Draw_Command dc;
     dc.kind = dq::k_unDCDrawWorldThing;
     auto& d = dc.draw_world_thing;
-    d.width = 22;
-    d.height = 22;
+    d.width = 24;
+    d.height = 24;
     d.x = 0;
     d.y = 0;
     d.hSprite = gpAppData->hSpriteBackground;
@@ -1014,7 +1014,7 @@ Application_Result OnPreFrame(float flDelta) {
     MeleeLogic(flDelta, game_data);
 
     // Ranged enemies
-    // RangedLogic(flDelta, game_data);
+    RangedLogic(flDelta, game_data);
 
     // Living
     Set<Entity_ID> diedEntities;
@@ -1105,6 +1105,7 @@ Application_Result OnPreFrame(float flDelta) {
     }
     ImGui::End();
 
+    /*
     // Visualize level geometry
     for (auto const& g : gpAppData->levelGeometry) {
         dq::Draw_Command dc;
@@ -1116,6 +1117,7 @@ Application_Result OnPreFrame(float flDelta) {
         dc.draw_rect.r = dc.draw_rect.g = dc.draw_rect.b = 1.0f;
         dq.Add(dc);
     }
+    */
 
     return k_nApplication_Result_OK;
 }
