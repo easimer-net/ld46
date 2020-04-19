@@ -8,6 +8,7 @@
 #include <utils/sdl_helper.h>
 #include "render_queue.h"
 #include "shaders.h"
+#include "projectiles.h"
 
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
@@ -126,6 +127,7 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
                 lm::Scale(cmd.move_camera.flZoom) *
                 lm::Translation(lm::Vector4(p[0], p[1], p[2]));
             OnProjectionMatrixUpdated(matVP, matInvVP, r.width, r.height);
+            Projectiles_SetVP(matVP);
             break;
         }
         case k_unRCDrawLine:
@@ -208,6 +210,8 @@ int main(int argc, char** argv) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+        Projectiles_Init();
+
         while (!bExit) {
             rq.Clear();
 
@@ -220,6 +224,8 @@ int main(int argc, char** argv) {
             res = OnPreFrame(flDelta);
             uiTimeAfterPreFrame = SDL_GetPerformanceCounter();
             CHECK_QUIT();
+
+            Projectiles_Tick(flDelta);
 
             while (SDL_PollEvent(&ev)) {
 
@@ -274,6 +280,7 @@ int main(int argc, char** argv) {
             ImGui::Render();
 
             ExecuteRenderQueue(R, rq);
+            Projectiles_Draw();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
             res = OnPostFrame();
@@ -281,6 +288,8 @@ int main(int argc, char** argv) {
 
             R.Present();
         }
+
+        Projectiles_Cleanup();
 
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplSDL2_Shutdown();

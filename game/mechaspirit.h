@@ -60,6 +60,8 @@ struct Possessable {
     float flMaxControlSpeed;
     float flPrimaryDamage;
     float flPrimaryCooldown, flMaxPrimaryCooldown;
+    lm::Vector4 vProjColor;
+    float flProjTTL;
 
     Optional<Dash> dashing;
 };

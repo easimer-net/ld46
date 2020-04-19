@@ -9,6 +9,7 @@ set(SRC
 	mechaspirit.h
 	collision.h
 	animator.h
+	projectiles.h
 
 	entry.cpp
 	game_core.cpp
@@ -16,6 +17,7 @@ set(SRC
 	textures.cpp
 	collision.cpp
 	animator.cpp
+	projectiles.cpp
 )
 
 add_executable(game ${SRC})

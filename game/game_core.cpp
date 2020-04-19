@@ -13,6 +13,7 @@
 #include "mechaspirit.h"
 #include "collision.h"
 #include "animator.h"
+#include "projectiles.h"
 
 #include <unordered_set>
 
@@ -319,6 +320,7 @@ static void SpawnChaingunner() {
         CHAINGUNNER_MAX_SPEED,
         CHAINGUNNER_PRIMARY_DAMAGE,
         CHAINGUNNER_PRIMARY_COOLDOWN, CHAINGUNNER_PRIMARY_COOLDOWN,
+        lm::Vector4(1.0f, 0.85f, 0.2f), 0.25f,
     };
     game_data.animated[id] = {
         gpAppData->hAnimChaingunner,
@@ -343,6 +345,7 @@ static void SpawnRailgunner() {
         RAILGUNNER_MAX_SPEED,
         RAILGUNNER_PRIMARY_DAMAGE,
         RAILGUNNER_PRIMARY_COOLDOWN, RAILGUNNER_PRIMARY_COOLDOWN,
+        lm::Vector4(0.15f, 0.15f, 1.0f), 1.0f,
     };
     game_data.animated[id] = {
         gpAppData->hAnimRailgunner,
@@ -510,7 +513,7 @@ static bool LoadGame() {
     return true;
 }
 
-static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, float flDamage) {
+static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, float flDamage, lm::Vector4 const& vColor, float flTTL) {
     auto& game_data = gpAppData->game_data;
     Collision_World cw;
 
@@ -526,7 +529,9 @@ static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, 
         }
     }
 
-    auto ray = Collision_Ray{ vOrigin, vDir };
+    auto const vRayDir = lm::Normalized(lm::Vector4(vDir[0], vDir[1]));
+
+    auto ray = Collision_Ray{ vOrigin, vRayDir };
 
     auto res = CheckCollisions(cw, ray);
     std::vector<Entity_ID> livingIds;
@@ -543,6 +548,13 @@ static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, 
         living.flHealth -= flDamage;
         printf("Ent %llu damaged by %f\n", iLiving, flDamage);
     }
+
+    Projectile proj;
+    proj.vFrom = vOrigin;
+    proj.vTo = vOrigin + 16 * vRayDir;
+    proj.vColor = vColor;
+    proj.flTTL = flTTL;
+    Projectiles_Add(proj);
 }
 
 static void MeleeAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 const& vDir) {
@@ -585,7 +597,7 @@ static void MeleeAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 c
         printf("Melee: ent %llu damaged by 1\n", iFirstHit);
     }
 
-    DbgLine(vOrigin, vOrigin + vDir);
+    // DbgLine(vOrigin, vOrigin + vDir);
 }
 
 static void RangedAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 const& vDir) {
@@ -628,7 +640,12 @@ static void RangedAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 
         printf("Ranged: ent %llu damaged by 1\n", iFirstHit);
     }
 
-    DbgLine(vOrigin, vOrigin + 8 * vDir);
+    Projectile proj;
+    proj.vFrom = vOrigin;
+    proj.vTo = vOrigin + 8 * vDir;
+    proj.vColor = lm::Vector4(1.0f, 0.3f, 0.0f);
+    proj.flTTL = 0.25f;
+    Projectiles_Add(proj);
 }
 
 static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
@@ -902,8 +919,8 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
                 if (gpAppData->bPlayerPrimaryAttack) {
                     if (possessed.flPrimaryCooldown <= 0.0f) {
                         possessed.flPrimaryCooldown = possessed.flMaxPrimaryCooldown;
-                        DbgLine(entWisp.position, gpAppData->cursorWorldPos);
-                        PlayerGunShoot(entWisp.position, vLookDir, possessed.flPrimaryDamage);
+                        // DbgLine(entWisp.position, gpAppData->cursorWorldPos);
+                        PlayerGunShoot(entWisp.position, vLookDir, possessed.flPrimaryDamage, possessed.vProjColor, possessed.flProjTTL);
                         animated.bAttacking = true;
                     }
                 } else {
