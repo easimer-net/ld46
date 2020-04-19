@@ -88,6 +88,8 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define HPBAR_OFF_Y_BOT (HPBAR_OFF_Y - HPBAR_SIZ_Y)
 #define HPBAR_SIZ_X (4.0f)
 
+#define ENEMY_INSTANT_ROTATION (1)
+
 struct Application_Data {
     Shader_Program shaderGeneric, shaderDebugRed, shaderRect;
     gl::VAO vao;
@@ -659,6 +661,10 @@ static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
             if (flPlayerDist > MELEE_ATTACK_RANGE_MIN) {
                 // We could be closer to the player
                 auto const flDesiredRot = atan2f(vTowardsNearest[1], vTowardsNearest[0]);
+#if ENEMY_INSTANT_ROTATION
+                ent.flRotation = flDesiredRot;
+                ent.position = ent.position + flDelta * MELEE_MAX_SPEED * lm::Normalized(vTowardsNearest);
+#else
                 auto const flRotation = ent.flRotation;
                 auto flDeltaRot = flDesiredRot - flRotation;
                 // auto const flDeltaRot = flDesiredRot - ent.flRotation;
@@ -678,6 +684,7 @@ static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
                 while (ent.flRotation < -M_PI) {
                     ent.flRotation += 2 * M_PI;
                 }
+#endif
             }
 
             if (flPlayerDist <= MELEE_ATTACK_RANGE_MAX) {
@@ -724,17 +731,21 @@ static inline void RangedLogic(float flDelta, Game_Data& game_data) {
             if (flPlayerDist > RANGED_ATTACK_RANGE_MIN) {
                 // We could be closer to the player
                 auto const flDesiredRot = atan2f(vTowardsNearest[1], vTowardsNearest[0]);
+#if ENEMY_INSTANT_ROTATION
+                ent.flRotation = flDesiredRot;
+                ent.position = ent.position + flDelta * MELEE_MAX_SPEED * lm::Normalized(vTowardsNearest);
+#else
                 auto const flRotation = ent.flRotation;
                 auto flDeltaRot = flDesiredRot - flRotation;
                 // auto const flDeltaRot = flDesiredRot - ent.flRotation;
                 auto const flRatio = abs(flDeltaRot / M_PI);
-                // ent.flRotation += flRatio * RANGED_MAX_ROT_SPEED * flDelta;
-                ent.flRotation += flRatio * RANGED_MAX_ROT_SPEED * flDelta;
+                // ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
+                ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
                 auto const vFwd = lm::Vector4(cosf(ent.flRotation), sinf(ent.flRotation));
                 auto const vFwdD = lm::Vector4(cosf(flDesiredRot), sinf(flDesiredRot));
                 // DbgLine(ent.position, ent.position + vFwd);
                 // DbgLine(ent.position, ent.position + vFwdD);
-                ent.position = ent.position + flDelta * RANGED_MAX_SPEED * vFwd;
+                ent.position = ent.position + flDelta * MELEE_MAX_SPEED * vFwd;
 
                 while (ent.flRotation > M_PI) {
                     ent.flRotation -= 2 * M_PI;
@@ -743,6 +754,7 @@ static inline void RangedLogic(float flDelta, Game_Data& game_data) {
                 while (ent.flRotation < -M_PI) {
                     ent.flRotation += 2 * M_PI;
                 }
+#endif
             }
 
             if (flPlayerDist <= RANGED_ATTACK_RANGE_MAX) {
