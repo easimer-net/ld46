@@ -58,7 +58,7 @@ namespace gl {
                 kDataFormat = GL_RGB;
                 break;
             case Format::RGBA:
-                uiStorageFormat = GL_RGB;
+                uiStorageFormat = GL_RGBA;
                 kDataFormat = GL_RGBA;
                 break;
             }

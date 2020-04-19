@@ -205,6 +205,9 @@ int main(int argc, char** argv) {
         Uint64 uiTimeAfterPreFrame = SDL_GetPerformanceCounter();
 #define CHECK_QUIT() if(res != k_nApplication_Result_OK) bExit = true
 
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
         while (!bExit) {
             rq.Clear();
 

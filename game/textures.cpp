@@ -26,7 +26,7 @@ Sprite LoadSprite(char const* pszPath) {
     unsigned unWidth, unHeight;
     gl::Format kFmt;
 
-    pData = stbi_load(pszPath, &nWidth, &nHeight, &nChannels, STBI_default);
+    pData = stbi_load(pszPath, &nWidth, &nHeight, &nChannels, STBI_rgb_alpha);
 
     if (pData != NULL) {
         ret = new Sprite_;
@@ -43,6 +43,7 @@ Sprite LoadSprite(char const* pszPath) {
         } else {
             assert(0);
         }
+        kFmt = gl::Format::RGBA;
 
         unWidth = (unsigned)nWidth;
         unHeight = (unsigned)nHeight;

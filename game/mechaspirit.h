@@ -63,6 +63,7 @@ struct Possessable {
     float flPrimaryCooldown, flMaxPrimaryCooldown;
 
     Optional<Dash> dashing;
+    bool bAttacking; // for animations only
 };
 
 struct Chaingunner {

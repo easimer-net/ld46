@@ -266,7 +266,16 @@ static Entity_ID CreatePlayer() {
 }
 
 static char ChaingunnerASTF(Entity_ID iEnt, char chCurrent) {
-    return 'i';
+    if (gpAppData->game_data.living.count(iEnt)) {
+        auto& possessable = gpAppData->game_data.possessables[iEnt];
+        if (possessable.bAttacking) {
+            return 'a';
+        }
+        return 'i';
+    } else {
+        // TODO(danielm): dead anim
+        return 'i';
+    }
 }
 
 static void SpawnChaingunner() {
@@ -809,7 +818,10 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
                         possessed.flPrimaryCooldown = possessed.flMaxPrimaryCooldown;
                         DbgLine(entWisp.position, gpAppData->cursorWorldPos);
                         PlayerGunShoot(entWisp.position, vLookDir, possessed.flPrimaryDamage);
+                        possessed.bAttacking = true;
                     }
+                } else {
+                    possessed.bAttacking = false;
                 }
             }
         }
@@ -843,9 +855,9 @@ static inline void AnimatedLogic(float flDelta, Game_Data& game_data) {
         ImGui::Text("#%llu", iEnt);
 
         animated.flTimer += flDelta;
-        while (animated.flTimer > 1 / 4.0f) {
+        while (animated.flTimer > 1 / 8.0f) {
             animated.iFrame++;
-            animated.flTimer -= 1 / 4.0f;
+            animated.flTimer -= 1 / 8.0f;
         }
 
         ImGui::Text("Timer: %f", animated.flTimer);
