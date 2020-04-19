@@ -37,7 +37,6 @@ struct Corpse {
 };
 
 struct Wisp {
-    Sprite hSprWisp;
     Optional<Entity_ID> iPossessed;
     Living mementoLiving;
     float flDashCooldown;
@@ -63,7 +62,6 @@ struct Possessable {
     float flPrimaryCooldown, flMaxPrimaryCooldown;
 
     Optional<Dash> dashing;
-    bool bAttacking; // for animations only
 };
 
 struct Chaingunner {
@@ -79,6 +77,8 @@ struct Animated {
     State_Transition_Function pFunc;
     unsigned iFrame;
     float flTimer;
+
+    bool bAttacking;
 };
 
 struct Game_Data {
