@@ -83,7 +83,7 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define CORPSE_DISAPPEAR_TIME (4.0f)
 
 #define HPBAR_OFF_Y (1.25f)
-#define HPBAR_SIZ_Y (0.5f)
+#define HPBAR_SIZ_Y (0.25f)
 #define HPBAR_OFF_Y_TOP (HPBAR_OFF_Y)
 #define HPBAR_OFF_Y_BOT (HPBAR_OFF_Y - HPBAR_SIZ_Y)
 #define HPBAR_SIZ_X (4.0f)
@@ -291,7 +291,7 @@ static void SpawnChaingunner() {
     auto& ent = game_data.entities[id];
     auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
     ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
-    ent.size = lm::Vector4(1, 1, 1);
+    ent.size = lm::Vector4(2, 2, 1);
     ent.hSprite = NULL;
     game_data.chaingunners[id] = {};
     game_data.living[id] = { CHAINGUNNER_MAX_HEALTH, CHAINGUNNER_MAX_HEALTH };
@@ -315,7 +315,7 @@ static void SpawnRailgunner() {
     auto& ent = game_data.entities[id];
     auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
     ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
-    ent.size = lm::Vector4(1, 1, 1);
+    ent.size = lm::Vector4(2, 2, 1);
     ent.hSprite = LoadSprite("data/lmecha.png");
     game_data.railgunners[id] = {};
     game_data.living[id] = { RAILGUNNER_MAX_HEALTH, RAILGUNNER_MAX_HEALTH };
@@ -341,8 +341,7 @@ static char EnemyASTF(Entity_ID id, char chCurrent) {
         }
         return 'i';
     } else {
-        // TODO(danielm): dead anim
-        return 'i';
+        return 'd';
     }
 }
 
@@ -352,10 +351,16 @@ static void SpawnMelee() {
     auto& ent = game_data.entities[id];
     auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
     ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
-    ent.size = lm::Vector4(1, 1, 1);
-    ent.hSprite = LoadSprite("data/melee.png");
+    ent.size = lm::Vector4(1, 1.5, 1);
+    ent.hSprite = NULL;
     game_data.living[id] = {MELEE_HEALTH, MELEE_HEALTH};
     game_data.melee_enemies[id] = {};
+    game_data.animated[id] = {
+        gpAppData->hAnimMelee,
+        'i',
+        EnemyASTF,
+        0, 0.0f,
+    };
 }
 
 
@@ -421,7 +426,7 @@ static void DbgLine(lm::Vector4 p0, lm::Vector4 p1) {
 #include "chaingunner.animdef"
 #include "railgunner.animdef"
 #include "wisp.animdef"
-#include "ranged.animdef"
+#include "enemy.animdef"
 // =====================================
 
 static bool LoadGame() {
@@ -476,6 +481,7 @@ static bool LoadGame() {
     gpAppData->hAnimRailgunner = BuildRailgunnerAnimations();
     gpAppData->hAnimWisp = BuildWispAnimations();
     gpAppData->hAnimRanged = BuildRangedAnimations();
+    gpAppData->hAnimMelee = BuildMeleeAnimations();
 
     CreatePlayer();
 
@@ -626,6 +632,9 @@ static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
             }
         }
 
+        auto& animated = game_data.animated[kvMelee.first];
+        animated.bAttacking = false;
+
         if (iNearestPlayer.has_value()) {
             if (flPlayerDist > MELEE_ATTACK_RANGE_MIN) {
                 // We could be closer to the player
@@ -653,6 +662,7 @@ static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
 
             if (flPlayerDist <= MELEE_ATTACK_RANGE_MAX) {
                 // Close enough to the player to attack
+                animated.bAttacking = true;
                 if (entMelee.flAttackCooldown <= 0.0f) {
                     MeleeAttack(kvMelee.first, ent.position, lm::Normalized(vTowardsNearest));
                     entMelee.flAttackCooldown = MELEE_ATTACK_COOLDOWN;
@@ -979,10 +989,10 @@ Application_Result OnPreFrame(float flDelta) {
     }
 
     // Melee enemies
-    // MeleeLogic(flDelta, game_data);
+    MeleeLogic(flDelta, game_data);
 
     // Ranged enemies
-    RangedLogic(flDelta, game_data);
+    // RangedLogic(flDelta, game_data);
 
     // Living
     Set<Entity_ID> diedEntities;
