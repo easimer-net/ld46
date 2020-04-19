@@ -91,6 +91,35 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 
 #define ENEMY_INSTANT_ROTATION (1)
 
+#define MENU_BTN_START (0)
+#define MENU_BTN_TUTORIAL (1)
+#define MENU_BTN_QUIT (2)
+
+#define TUT_MOVE (0)
+#define TUT_POSSESSION (1)
+#define TUT_DASH (2)
+#define TUT_AMBUSH1 (3)
+#define TUT_AMBUSH2 (4)
+#define TUT_EXIT (5)
+#define TUT_MAX (6)
+
+enum class Game_Stage {
+    Menu, Tutorial, Game,
+};
+
+struct Menu_Data {
+    Sprite hButtons[3];
+    Sprite hButtonsHover[3];
+    Sprite hHelp;
+};
+
+struct Tutorial_Data {
+    Sprite ahRooms[3] = { NULL, NULL, NULL };
+    Sprite ahMsg[TUT_MAX];
+    bool abState[TUT_MAX];
+    Collision_Level_Geometry levelGeometry;
+};
+
 struct Application_Data {
     Shader_Program shaderGeneric, shaderDebugRed, shaderRect;
     gl::VAO vao;
@@ -121,6 +150,11 @@ struct Application_Data {
     Animation_Collection hAnimWisp;
 
     Sprite hSpriteBackground;
+
+    Game_Stage stage = Game_Stage::Menu;
+
+    Optional<Menu_Data> menu_data;
+    Optional<Tutorial_Data> tutorial_data;
 };
 
 static Application_Data* gpAppData = NULL;
@@ -994,13 +1028,7 @@ static inline void AnimatedLogic(float flDelta, Game_Data& game_data) {
     ImGui::End();
 }
 
-Application_Result OnPreFrame(float flDelta) {
-    if (gpAppData == NULL) {
-        if (!LoadGame()) {
-            return k_nApplication_Result_GeneralFailure;
-        }
-    }
-
+static void InGameLogic(float flDelta) {
     auto& dq = gpAppData->dq;
 
     DrawBackground(dq);
@@ -1147,8 +1175,107 @@ Application_Result OnPreFrame(float flDelta) {
         dq.Add(dc);
     }
     */
+}
 
-    return k_nApplication_Result_OK;
+static void FreeMenuAssets() {
+    if (gpAppData->menu_data.has_value()) {
+        for (int i = 0; i < 3; i++) {
+            FreeSprite(gpAppData->menu_data->hButtons[i]);
+            FreeSprite(gpAppData->menu_data->hButtonsHover[i]);
+        }
+        FreeSprite(gpAppData->menu_data->hHelp);
+        gpAppData->menu_data.reset();
+    }
+}
+
+static Application_Result MenuLogic(float flDelta) {
+    Application_Result ret = k_nApplication_Result_OK;
+    auto& dq = gpAppData->dq;
+    if (!gpAppData->menu_data.has_value()) {
+        // Load menu assets
+        gpAppData->menu_data = Menu_Data();
+        gpAppData->menu_data->hButtons[MENU_BTN_START]           = LoadSprite("data/btn0.png");
+        gpAppData->menu_data->hButtons[MENU_BTN_TUTORIAL]        = LoadSprite("data/btn1.png");
+        gpAppData->menu_data->hButtons[MENU_BTN_QUIT]            = LoadSprite("data/btn2.png");
+        gpAppData->menu_data->hButtonsHover[MENU_BTN_START]      = LoadSprite("data/btn0h.png");
+        gpAppData->menu_data->hButtonsHover[MENU_BTN_TUTORIAL]   = LoadSprite("data/btn1h.png");
+        gpAppData->menu_data->hButtonsHover[MENU_BTN_QUIT]       = LoadSprite("data/btn2h.png");
+        gpAppData->menu_data->hHelp = LoadSprite("data/help.png");
+    }
+
+    dq::Draw_Command dc;
+    dc.kind = dq::k_unDCDrawWorldThing;
+    auto& d = dc.draw_world_thing;
+    d.width = 0.25; d.height = 0.125;
+    d.x = 0;
+    auto const c = gpAppData->cursorWorldPos;
+    bool const bCursorOverMenu = d.x - d.width / 2 <= c[0] && c[0] <= d.x + d.width / 2;
+    for (int i = 0; i < 3; i++) {
+        // NOTE(danielm): the tutorial mode has been cut and replace by that menu graphic
+        if (i != MENU_BTN_TUTORIAL) {
+            d.hSprite = gpAppData->menu_data->hButtons[i];
+            d.y = i * -0.15;
+            if (bCursorOverMenu) {
+                auto top = d.y - d.height / 2;
+                auto bot = top + d.height;
+                if (top <= c[1] && c[1] <= bot) {
+                    d.hSprite = gpAppData->menu_data->hButtonsHover[i];
+                    if (gpAppData->bPlayerPrimaryAttack) {
+                        switch (i) {
+                        case MENU_BTN_START:
+                            gpAppData->stage = Game_Stage::Game;
+                            break;
+                        case MENU_BTN_TUTORIAL:
+                            gpAppData->stage = Game_Stage::Tutorial;
+                            break;
+                        case MENU_BTN_QUIT:
+                            ret = k_nApplication_Result_Quit;
+                            break;
+                        }
+                    }
+                }
+            }
+            dq.Add(dc);
+        }
+    }
+
+    d.width = 1.5;
+    d.height = 3;
+    d.x = 1;
+    d.y = -0.5;
+    d.hSprite = gpAppData->menu_data->hHelp;
+    dq.Add(dc);
+
+    if (gpAppData->stage != Game_Stage::Menu) {
+        // when switching stages
+        FreeMenuAssets();
+    }
+
+    gpAppData->cameraPosition = lm::Vector4();
+    gpAppData->cameraZoom = 1;
+
+    return ret;
+}
+
+Application_Result OnPreFrame(float flDelta) {
+    if (gpAppData == NULL) {
+        if (!LoadGame()) {
+            return k_nApplication_Result_GeneralFailure;
+        }
+    }
+
+    Application_Result ret = k_nApplication_Result_OK;
+
+    switch (gpAppData->stage) {
+    case Game_Stage::Menu:
+        ret = MenuLogic(flDelta);
+        break;
+    case Game_Stage::Game:
+        InGameLogic(flDelta);
+        break;
+    }
+
+    return ret;
 }
 
 Application_Result OnInput(SDL_Event const& ev) {
@@ -1178,9 +1305,11 @@ Application_Result OnInput(SDL_Event const& ev) {
             break;
         }
     } else if (ev.type == SDL_MOUSEWHEEL) {
-        gpAppData->cameraZoom -= ev.wheel.y;
-        if (gpAppData->cameraZoom < 1) gpAppData->cameraZoom = 1;
-        if (gpAppData->cameraZoom > 64) gpAppData->cameraZoom = 64;
+        if (!gpAppData->menu_data.has_value()) {
+            gpAppData->cameraZoom -= ev.wheel.y;
+            if (gpAppData->cameraZoom < 1) gpAppData->cameraZoom = 1;
+            if (gpAppData->cameraZoom > 64) gpAppData->cameraZoom = 64;
+        }
     } else if (ev.type == SDL_MOUSEMOTION) {
         auto const vNdcPos =
             lm::Vector4(
@@ -1214,20 +1343,7 @@ Application_Result OnInput(SDL_Event const& ev) {
     return k_nApplication_Result_OK;
 }
 
-static void DbgDisp(char const* pszLabel, lm::Vector4& v, bool bWriteable = false) {
-    ImGuiInputTextFlags flags = 0;
-    if (!bWriteable) {
-        flags |= ImGuiInputTextFlags_ReadOnly;
-    }
-    ImGui::InputFloat4(pszLabel, v.m_flValues, 5, flags);
-}
-
 Application_Result OnDraw(rq::Render_Queue* pQueue) {
-    if (ImGui::Begin("gpAppData")) {
-        DbgDisp("cameraPosition", gpAppData->cameraPosition);
-        ImGui::InputInt("playerMoveDir", (int*)&gpAppData->playerMoveDir);
-    }
-    ImGui::End();
     rq::Render_Command rc;
 
     *pQueue = std::move(Translate(gpAppData->dq));
@@ -1245,5 +1361,40 @@ Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Mat
     gpAppData->matInvProj = matInvProj;
     gpAppData->flScreenWidth = flWidth;
     gpAppData->flScreenHeight = flHeight;
+    return k_nApplication_Result_OK;
+}
+
+Application_Result OnReset() {
+    if (gpAppData != NULL) {
+        gpAppData->game_data.entities.clear();
+        gpAppData->game_data.living.clear();
+        gpAppData->game_data.corpses.clear();
+        gpAppData->game_data.wisps.clear();
+        gpAppData->game_data.melee_enemies.clear();
+        gpAppData->game_data.ranged_enemies.clear();
+        gpAppData->game_data.possessables.clear();
+        gpAppData->game_data.chaingunners.clear();
+        gpAppData->game_data.railgunners.clear();
+        gpAppData->game_data.animated.clear();
+    }
+
+    return k_nApplication_Result_OK;
+}
+
+Application_Result OnShutdown() {
+    if (gpAppData != NULL) {
+        FreeMenuAssets();
+        FreeSprite(gpAppData->hSpriteBackground);
+        FreeAnimator(gpAppData->hAnimChaingunner);
+        FreeAnimator(gpAppData->hAnimRailgunner);
+        FreeAnimator(gpAppData->hAnimMelee);
+        FreeAnimator(gpAppData->hAnimRanged);
+        FreeAnimator(gpAppData->hAnimWisp);
+        FreeShader(gpAppData->shaderRect);
+        FreeShader(gpAppData->shaderGeneric);
+        FreeShader(gpAppData->shaderDebugRed);
+        delete gpAppData;
+        gpAppData = NULL;
+    }
     return k_nApplication_Result_OK;
 }
