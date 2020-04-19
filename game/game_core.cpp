@@ -116,6 +116,8 @@ struct Application_Data {
     Animation_Collection hAnimChaingunner, hAnimRailgunner;
     Animation_Collection hAnimMelee, hAnimRanged;
     Animation_Collection hAnimWisp;
+
+    Sprite hSpriteBackground;
 };
 
 static Application_Data* gpAppData = NULL;
@@ -270,6 +272,22 @@ static Entity_ID CreatePlayer() {
     };
 
     return ret;
+}
+
+static void LoadBackground(char const* pszPath) {
+    gpAppData->hSpriteBackground = LoadSprite(pszPath);
+}
+
+static void DrawBackground(dq::Draw_Queue& dq) {
+    dq::Draw_Command dc;
+    dc.kind = dq::k_unDCDrawWorldThing;
+    auto& d = dc.draw_world_thing;
+    d.width = 22;
+    d.height = 22;
+    d.x = 0;
+    d.y = 0;
+    d.hSprite = gpAppData->hSpriteBackground;
+    dq.Add(dc);
 }
 
 static char ChaingunnerASTF(Entity_ID iEnt, char chCurrent) {
@@ -482,6 +500,8 @@ static bool LoadGame() {
     gpAppData->hAnimWisp = BuildWispAnimations();
     gpAppData->hAnimRanged = BuildRangedAnimations();
     gpAppData->hAnimMelee = BuildMeleeAnimations();
+
+    LoadBackground("data/background001.png");
 
     CreatePlayer();
 
@@ -953,6 +973,8 @@ Application_Result OnPreFrame(float flDelta) {
     }
 
     auto& dq = gpAppData->dq;
+
+    DrawBackground(dq);
 
     // =======================
     // Game logic
