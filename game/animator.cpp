@@ -31,7 +31,9 @@ void FreeAnimator(Animation_Collection hAnimator) {
             auto& frames = anim.second.aFrames[i];
             for (int iFrame = 0; iFrame < 10; iFrame++) {
                 if (frames.ahSprites[iFrame] != NULL) {
-                    FreeSprite(frames.ahSprites[iFrame]);
+                    auto hSprite = frames.ahSprites[iFrame];
+                    UnpinSprite(hSprite);
+                    FreeSprite(hSprite);
                 }
             }
         }
@@ -51,6 +53,7 @@ void LoadAnimationFrame(
     auto hSprite = LoadSprite(pszPath);
 
     if (hSprite != NULL) {
+        PinSprite(hSprite);
         auto& anims = hColl->animations;
         if (!anims.count(iAnim)) {
             anims[iAnim] = {};

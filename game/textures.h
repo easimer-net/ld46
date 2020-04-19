@@ -14,6 +14,10 @@ using Sprite = Sprite_*;
 Sprite LoadSprite(char const* pszPath);
 void FreeSprite(Sprite hSprite);
 
+// 
+void PinSprite(Sprite hSprite);
+void UnpinSprite(Sprite hSprite);
+
 // Binds the underlying OpenGL texture
 // NOTE: only code executing a Render_Queue may use this!
 // Game code should use the high-level draw commands

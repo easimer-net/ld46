@@ -114,6 +114,7 @@ struct Application_Data {
     Collision_Level_Geometry levelGeometry;
 
     Animation_Collection hAnimChaingunner;
+    Animation_Collection hAnimRailgunner;
 };
 
 static Application_Data* gpAppData = NULL;
@@ -244,6 +245,7 @@ static void DeleteEntity(Entity_ID id) {
         game_data.possessables.erase(id);
         game_data.chaingunners.erase(id);
         game_data.railgunners.erase(id);
+        game_data.animated.erase(id);
     }
 }
 
@@ -306,6 +308,12 @@ static void SpawnRailgunner() {
         RAILGUNNER_PRIMARY_DAMAGE,
         RAILGUNNER_PRIMARY_COOLDOWN, RAILGUNNER_PRIMARY_COOLDOWN,
     };
+    game_data.animated[id] = {
+        gpAppData->hAnimRailgunner,
+        'i',
+        ChaingunnerASTF,
+        0, 0.0f,
+    };
     printf("Spawned railgunner\n");
 }
 
@@ -366,20 +374,17 @@ static void DbgLine(lm::Vector4 p0, lm::Vector4 p1) {
     DbgLine(p0[0], p0[1], p1[0], p1[1]);
 }
 
-static Animation_Collection BuildChaingunnerAnimations() {
-    auto ret = CreateAnimator();
+// =====================================
+// Animation Definitions
+#define ANIMDEF_BEGIN(fn) static Animation_Collection fn() { auto ret = CreateAnimator(); char chAnim; Sprite_Direction kDir;
+#define ANIMDEF_ANIM(ch) chAnim = ch;
+#define ANIMDEF_DIR(dir) kDir = k_unDir_##dir;
+#define ANIMDEF_FRAME(i, path) LoadAnimationFrame(ret, chAnim, kDir, i, path);
+#define ANIMDEF_END() return ret; }
 
-    LoadAnimationFrame(ret, 'i', k_unDir_NorthEast, 0, "data/hmecha_idle_ne_001.png");
-    LoadAnimationFrame(ret, 'i', k_unDir_NorthEast, 1, "data/hmecha_idle_ne_002.png");
-
-    LoadAnimationFrame(ret, 'i', k_unDir_NorthWest, 0, "data/hmecha_idle_nw_001.png");
-    LoadAnimationFrame(ret, 'i', k_unDir_NorthWest, 1, "data/hmecha_idle_nw_002.png");
-
-    LoadAnimationFrame(ret, 'i', k_unDir_SouthWest, 0, "data/test.png");
-    LoadAnimationFrame(ret, 'i', k_unDir_SouthEast, 0, "data/test.png");
-
-    return ret;
-}
+#include "chaingunner.animdef"
+#include "railgunner.animdef"
+// =====================================
 
 static bool LoadGame() {
     auto program = BuildShader("shaders/generic.vert", "shaders/generic.frag");
@@ -432,6 +437,7 @@ static bool LoadGame() {
     };
 
     gpAppData->hAnimChaingunner = BuildChaingunnerAnimations();
+    gpAppData->hAnimRailgunner = BuildRailgunnerAnimations();
 
     return true;
 }
@@ -849,10 +855,10 @@ static inline void AnimatedLogic(float flDelta, Game_Data& game_data) {
             kDir = k_unDir_NorthEast;
         } else if (M_PI / 2 <= ent.flRotation && ent.flRotation < M_PI) {
             kDir = k_unDir_NorthWest;
-        } else if (M_PI <= ent.flRotation && ent.flRotation < M_PI * 1.5f) {
-            kDir = k_unDir_SouthWest;
-        } else {
+        } else if (-M_PI / 2 < ent.flRotation && ent.flRotation < 0.0f) {
             kDir = k_unDir_SouthEast;
+        } else {
+            kDir = k_unDir_SouthWest;
         }
 
         ImGui::Text("Direction: %u", kDir);
@@ -917,10 +923,10 @@ Application_Result OnPreFrame(float flDelta) {
     }
 
     // Melee enemies
-    MeleeLogic(flDelta, game_data);
+    // MeleeLogic(flDelta, game_data);
 
     // Ranged enemies
-    RangedLogic(flDelta, game_data);
+    // RangedLogic(flDelta, game_data);
 
     // Living
     Set<Entity_ID> diedEntities;

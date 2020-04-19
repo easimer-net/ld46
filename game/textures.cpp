@@ -14,6 +14,7 @@
 
 struct Sprite_ {
     gl::Texture2D hTexture;
+    bool bPinned;
     // TODO(danielm): refcount when caching is done
 };
 
@@ -29,6 +30,8 @@ Sprite LoadSprite(char const* pszPath) {
 
     if (pData != NULL) {
         ret = new Sprite_;
+
+        ret->bPinned = false;
 
         // TODO(danielm): cache images
         printf("Loaded image file '%s' %dx%dx%d\n", pszPath, nWidth, nHeight, nChannels);
@@ -57,9 +60,11 @@ Sprite LoadSprite(char const* pszPath) {
 void FreeSprite(Sprite hSprite) {
     assert(hSprite != NULL);
 
-    printf("Sprite %x freed\n", hSprite);
+    if (!hSprite->bPinned) {
+        printf("Sprite %x freed\n", hSprite);
 
-    delete hSprite;
+        delete hSprite;
+    }
 }
 
 void BindSprite(Sprite hSprite) {
@@ -67,4 +72,14 @@ void BindSprite(Sprite hSprite) {
     if (hSprite != NULL) {
         gl::Bind(hSprite->hTexture);
     }
+}
+
+void PinSprite(Sprite hSprite) {
+    assert(hSprite != NULL);
+    hSprite->bPinned = true;
+}
+
+void UnpinSprite(Sprite hSprite) {
+    assert(hSprite != NULL);
+    hSprite->bPinned = false;
 }
