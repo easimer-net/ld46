@@ -840,9 +840,9 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
 
     for (auto& kvWisp : game_data.wisps) {
         auto const iWisp = kvWisp.first;
-        auto& const entWisp = game_data.entities[iWisp];
-        auto& const wisp = kvWisp.second;
-        auto& const pos = entWisp.position;
+        auto& entWisp = game_data.entities[iWisp];
+        auto& wisp = kvWisp.second;
+        auto& pos = entWisp.position;
         lm::Vector4 newPos = pos;
         float flCurrentSpeed;
         auto const vLookDir = lm::Normalized(gpAppData->cursorWorldPos - entWisp.position);
@@ -855,7 +855,7 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
             entWisp.hSprite = NULL;
 
             auto id = wisp.iPossessed.value();
-            auto& const possessed = game_data.entities[id];
+            auto& possessed = game_data.entities[id];
             auto& possessable = game_data.possessables[id];
 
             if (gpAppData->bPlayerDash) {
@@ -891,12 +891,12 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
         if (ImGui::Begin("Player", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
             ImGui::Text("Score: %u points", wisp.unScore);
             if (game_data.living.count(iWisp)) {
-                auto& const hp = game_data.living[iWisp];
+                auto& hp = game_data.living[iWisp];
                 ImGui::Text("Health: %f%%", 100 * hp.flHealth / hp.flMaxHealth);
             } else if (wisp.iPossessed.has_value()) {
                 if (game_data.living.count(wisp.iPossessed.value())) {
-                    auto& const hp = game_data.living[wisp.iPossessed.value()];
-                    auto& const poss = game_data.possessables[wisp.iPossessed.value()];
+                    auto& hp = game_data.living[wisp.iPossessed.value()];
+                    auto& poss = game_data.possessables[wisp.iPossessed.value()];
                     ImGui::Text("Machine Energy: %f%%", 100 * hp.flHealth / hp.flMaxHealth);
                 }
 

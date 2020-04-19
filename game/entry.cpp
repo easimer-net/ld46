@@ -17,7 +17,7 @@
 struct GL_Renderer : public sdl::Renderer {
     SDL_GLContext glctx;
 
-    GL_Renderer() : Renderer("game", 1280, 720, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL) {
+    GL_Renderer() : Renderer("Mechaspirit", 1280, 720, SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL) {
         if (window != NULL && renderer != NULL) {
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 5);
