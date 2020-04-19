@@ -31,7 +31,7 @@ namespace dq {
     struct Draw_Rect_Params {
         float x0, y0;
         float x1, y1;
-        float r, g, b;
+        float r, g, b, a;
     };
 
     struct Draw_Command {

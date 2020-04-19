@@ -9,6 +9,7 @@
 #include "render_queue.h"
 #include "shaders.h"
 #include "projectiles.h"
+#include <SDL_mixer.h>
 
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
@@ -28,6 +29,7 @@ struct GL_Renderer : public sdl::Renderer {
             SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
             glctx = SDL_GL_CreateContext(window);
+            SDL_GL_SetSwapInterval(0);
         }
     }
 
@@ -155,7 +157,7 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
             auto const& ts = cmd.draw_rect;
             auto vPos = lm::Vector4(ts.x0, ts.y0, 0);
             matMVP = lm::Scale(ts.sx, ts.sy, 1) * lm::Translation(vPos) * matVP;
-            auto const vColor = lm::Vector4(ts.r, ts.g, ts.b, 1.0f);
+            auto const vColor = lm::Vector4(ts.r, ts.g, ts.b, ts.a);
             SetShaderMVP(hCurrentProgram, matMVP);
             SetShaderVertexColor(hCurrentProgram, vColor);
             glBindVertexArray(ts.vao);
@@ -211,6 +213,10 @@ int main(int argc, char** argv) {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         Projectiles_Init();
+
+        Mix_Init(0);
+        Mix_OpenAudio(48000, AUDIO_S16LSB, 2, 4096);
+        Mix_Volume(-1, 8);
 
         while (!bExit) {
             rq.Clear();
@@ -286,15 +292,26 @@ int main(int argc, char** argv) {
             res = OnPostFrame();
             CHECK_QUIT();
 
+            auto uiTimeBeforePresent = SDL_GetPerformanceCounter();
             R.Present();
+
+            // framerate capping
+            auto flElapsed = (uiTimeBeforePresent - uiTimeBeforePreFrame) / (double) SDL_GetPerformanceFrequency();
+            auto flSleep = (1 / 60.0f) - flElapsed;
+            if (flSleep > 0) {
+                auto unDelay = (Uint32)(1000 * flSleep);
+                SDL_Delay(unDelay);
+            }
         }
 
+        Mix_CloseAudio();
         Projectiles_Cleanup();
 
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplSDL2_Shutdown();
     }
 
+    Mix_Quit();
     SDL_Quit();
     return 0;
 }

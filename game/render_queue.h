@@ -76,7 +76,7 @@ namespace rq {
         GLuint vao;
         float x0, y0;
         float sx, sy;
-        float r, g, b;
+        float r, g, b, a;
     };
 
     struct Render_Command {

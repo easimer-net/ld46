@@ -5,6 +5,7 @@
 
 #include "stdafx.h"
 #include "common.h"
+#include <ctime>
 #include "render_queue.h"
 #include <utils/glres.h>
 #include <utils/gl.h>
@@ -16,6 +17,7 @@
 #include "projectiles.h"
 
 #include <unordered_set>
+#include <SDL_mixer.h>
 
 template<typename T>
 using Set = std::unordered_set<T>;
@@ -32,7 +34,7 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define PLAYER_MOVEDIR_GET(x) \
 (((gpAppData->playerMoveDir & (x)) != 0) ? 1.0f : 0.0f)
 
-#define PLAYER_MAX_HEALTH (100.0f)
+#define PLAYER_MAX_HEALTH (25.0f)
 #define PLAYER_SPEED (3.5f)
 #define PLAYER_DASH_SPEED (7.0f)
 #define PLAYER_DASH_DURATION (0.2f)
@@ -43,7 +45,7 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define CHAINGUNNER_SPAWN_CHANCE (0.50f)
 #define CHAINGUNNER_PRIMARY_COOLDOWN (0.05f)
 #define CHAINGUNNER_PRIMARY_DAMAGE (1.0f)
-#define CHAINGUNNER_MAX_HEALTH (65.0f)
+#define CHAINGUNNER_MAX_HEALTH (50.0f)
 #define CHAINGUNNER_MAX_SPEED (2.0f)
 
 #define RAILGUNNER_MIN_SPAWNED (0)
@@ -61,7 +63,7 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 
 #define MELEE_MIN_SPAWNED (1)
 #define MELEE_MAX_SPAWNED (3)
-#define MELEE_SPAWN_CHANCE (0.50f)
+#define MELEE_SPAWN_CHANCE (0.40f)
 #define MELEE_MAX_SPEED (3.75f)
 #define MELEE_MAX_ROT_SPEED (2 * 3.1415926f)
 #define MELEE_ATTACK_RANGE_MIN (1.25f)
@@ -76,7 +78,7 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define RANGED_ATTACK_RANGE_MAX (10.5f)
 #define RANGED_ATTACK_DAMAGE (0.5f)
 #define RANGED_ATTACK_COOLDOWN (0.125f)
-#define RANGED_SPAWN_CHANCE (0.25f)
+#define RANGED_SPAWN_CHANCE (0.15f)
 #define RANGED_MAX_ROT_SPEED (1.5f * 3.1415926f)
 #define RANGED_MAX_SPEED (2.5f)
 #define RANGED_HEALTH (7.0f)
@@ -155,9 +157,16 @@ struct Application_Data {
 
     Optional<Menu_Data> menu_data;
     Optional<Tutorial_Data> tutorial_data;
+
+    Mix_Chunk* pSndChaingun[6];
+    int iChaingunNext = 0;
+    Mix_Chunk* pSndRailgun[3];
+    int iRailgunNext = 0;
 };
 
 static Application_Data* gpAppData = NULL;
+
+Application_Result OnReset();
 
 static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
@@ -228,6 +237,7 @@ static rq::Render_Queue Translate(dq::Draw_Queue const& dq) {
             draw_rect.r = cmd.draw_rect.r;
             draw_rect.g = cmd.draw_rect.g;
             draw_rect.b = cmd.draw_rect.b;
+            draw_rect.a = cmd.draw_rect.a;
             draw_rect.sx = cmd.draw_rect.x1 - cmd.draw_line.x0;
             draw_rect.sy = cmd.draw_rect.y1 - cmd.draw_line.y0;
             draw_rect.x0 = cmd.draw_rect.x0 + draw_rect.sx * 0.5f;
@@ -355,6 +365,7 @@ static void SpawnChaingunner() {
         CHAINGUNNER_PRIMARY_DAMAGE,
         CHAINGUNNER_PRIMARY_COOLDOWN, CHAINGUNNER_PRIMARY_COOLDOWN,
         lm::Vector4(1.0f, 0.85f, 0.2f), 0.25f,
+        true,
     };
     game_data.animated[id] = {
         gpAppData->hAnimChaingunner,
@@ -380,6 +391,7 @@ static void SpawnRailgunner() {
         RAILGUNNER_PRIMARY_DAMAGE,
         RAILGUNNER_PRIMARY_COOLDOWN, RAILGUNNER_PRIMARY_COOLDOWN,
         lm::Vector4(0.15f, 0.15f, 1.0f), 1.0f,
+        false,
     };
     game_data.animated[id] = {
         gpAppData->hAnimRailgunner,
@@ -492,7 +504,7 @@ static bool LoadGame() {
         return false;
     }
 
-    srand(0);
+    srand(time(NULL));
 
     gpAppData = new Application_Data;
 
@@ -542,12 +554,22 @@ static bool LoadGame() {
 
     LoadBackground("data/background001.png");
 
-    CreatePlayer();
+    for (int i = 0; i < 6; i++) {
+        char pszPath[64];
+        snprintf(pszPath, 63, "data/snd/chaingun00%d.wav", i + 1);
+        gpAppData->pSndChaingun[i] = Mix_LoadWAV(pszPath);
+    }
+
+    for (int i = 0; i < 3; i++) {
+        char pszPath[64];
+        snprintf(pszPath, 63, "data/snd/railgun00%d.wav", i + 1);
+        gpAppData->pSndRailgun[i] = Mix_LoadWAV(pszPath);
+    }
 
     return true;
 }
 
-static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, float flDamage, lm::Vector4 const& vColor, float flTTL) {
+static void PlayerGunShoot(Wisp& me, lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, float flDamage, lm::Vector4 const& vColor, float flTTL, Possessable const& pos) {
     auto& game_data = gpAppData->game_data;
     Collision_World cw;
 
@@ -581,6 +603,9 @@ static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, 
         auto& living = game_data.living[iLiving];
         living.flHealth -= flDamage;
         printf("Ent %llu damaged by %f\n", iLiving, flDamage);
+        if (living.flHealth <= 0) {
+            me.unScore += 5;
+        }
     }
 
     Projectile proj;
@@ -589,6 +614,16 @@ static void PlayerGunShoot(lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, 
     proj.vColor = vColor;
     proj.flTTL = flTTL;
     Projectiles_Add(proj);
+
+    Mix_Chunk* pChunk = NULL;
+    if (pos.bReguralSfx) {
+        pChunk = gpAppData->pSndChaingun[gpAppData->iChaingunNext];
+        gpAppData->iChaingunNext = (gpAppData->iChaingunNext + 1) % 6;
+    } else {
+        pChunk = gpAppData->pSndRailgun[gpAppData->iRailgunNext];
+        gpAppData->iRailgunNext = (gpAppData->iRailgunNext + 1) % 3;
+    }
+    // Mix_PlayChannel(-1, pChunk, 0);
 }
 
 static void MeleeAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 const& vDir) {
@@ -683,7 +718,7 @@ static void RangedAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 
 }
 
 static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
-    RandomSpawn(MELEE_MIN_SPAWNED, MELEE_MAX_SPAWNED, MELEE_SPAWN_CHANCE,
+    RandomSpawn(MELEE_MIN_SPAWNED, MELEE_MAX_SPAWNED, flDelta * MELEE_SPAWN_CHANCE,
         [=]() { return game_data.melee_enemies.size(); }, SpawnMelee);
     for (auto& kvMelee : game_data.melee_enemies) {
         auto& entMelee = kvMelee.second;
@@ -753,7 +788,7 @@ static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
 }
 
 static inline void RangedLogic(float flDelta, Game_Data& game_data) {
-    RandomSpawn(RANGED_MIN_SPAWNED, RANGED_MAX_SPAWNED, RANGED_SPAWN_CHANCE,
+    RandomSpawn(RANGED_MIN_SPAWNED, RANGED_MAX_SPAWNED, flDelta * RANGED_SPAWN_CHANCE,
         [=]() { return game_data.ranged_enemies.size(); }, SpawnRanged);
     for (auto& kvRanged : game_data.ranged_enemies) {
         auto& entRanged = kvRanged.second;
@@ -879,13 +914,27 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
         auto const vDist = pos - gpAppData->cameraPosition;
         gpAppData->cameraPosition = gpAppData->cameraPosition + flDelta * vDist;
 
-        // Debug UI
-        if (ImGui::Begin("Player")) {
-            ImGui::InputFloat4("Position", pos.m_flValues);
+        ImGui::SetNextWindowSize(ImVec2(200, 100), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
+        if (ImGui::Begin("Player", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+            ImGui::Text("Score: %u points", wisp.unScore);
             if (game_data.living.count(iWisp)) {
                 auto& const hp = game_data.living[iWisp];
-                ImGui::InputFloat("Health", &hp.flHealth);
-                ImGui::InputFloat("Max health", &hp.flMaxHealth);
+                ImGui::Text("Health: %f%%", 100 * hp.flHealth / hp.flMaxHealth);
+            } else if (wisp.iPossessed.has_value()) {
+                if (game_data.living.count(wisp.iPossessed.value())) {
+                    auto& const hp = game_data.living[wisp.iPossessed.value()];
+                    auto& const poss = game_data.possessables[wisp.iPossessed.value()];
+                    ImGui::Text("Machine Energy: %f%%", 100 * hp.flHealth / hp.flMaxHealth);
+                }
+
+                if (wisp.flDashCooldown > 0.0f) {
+                    ImGui::Text("Dash: %f seconds", wisp.flDashCooldown);
+                }
+            } else {
+                if (ImGui::Button("Restart")) {
+                    gpAppData->stage = Game_Stage::Menu;
+                }
             }
         }
         ImGui::End();
@@ -954,7 +1003,7 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
                     if (possessed.flPrimaryCooldown <= 0.0f) {
                         possessed.flPrimaryCooldown = possessed.flMaxPrimaryCooldown;
                         // DbgLine(entWisp.position, gpAppData->cursorWorldPos);
-                        PlayerGunShoot(entWisp.position, vLookDir, possessed.flPrimaryDamage, possessed.vProjColor, possessed.flProjTTL);
+                        PlayerGunShoot(wisp, entWisp.position, vLookDir, possessed.flPrimaryDamage, possessed.vProjColor, possessed.flProjTTL, possessed);
                         animated.bAttacking = true;
                     }
                 } else {
@@ -975,11 +1024,23 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
         }
     }
 
+    if (game_data.wisps.size() == 0) {
+        // Player(s) are dead, show restart screen
+        ImGui::SetNextWindowSize(ImVec2(400, 200), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
+        ImGui::Begin("Player", 0, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+        ImGui::Text("You have died!");
+        if (ImGui::Button("Restart")) {
+            gpAppData->stage = Game_Stage::Menu;
+        }
+        ImGui::End();
+    }
+
     gpAppData->bPlayerDash = false;
 }
 
 static inline void AnimatedLogic(float flDelta, Game_Data& game_data) {
-    ImGui::Begin("Animated", NULL, ImGuiWindowFlags_NoCollapse);
+    // ImGui::Begin("Animated", NULL, ImGuiWindowFlags_NoCollapse);
     for (auto& kvAnim : game_data.animated) {
         auto iEnt = kvAnim.first;
         auto& animated = kvAnim.second;
@@ -988,8 +1049,8 @@ static inline void AnimatedLogic(float flDelta, Game_Data& game_data) {
         bool bLooped = false;
         assert(ent.bUsed);
 
-        ImGui::Separator();
-        ImGui::Text("#%llu", iEnt);
+        // ImGui::Separator();
+        // ImGui::Text("#%llu", iEnt);
 
         animated.flTimer += flDelta;
         while (animated.flTimer > 1 / 8.0f) {
@@ -997,8 +1058,8 @@ static inline void AnimatedLogic(float flDelta, Game_Data& game_data) {
             animated.flTimer -= 1 / 8.0f;
         }
 
-        ImGui::Text("Timer: %f", animated.flTimer);
-        ImGui::Text("Frame: %u", animated.iFrame);
+        // ImGui::Text("Timer: %f", animated.flTimer);
+        // ImGui::Text("Frame: %u", animated.iFrame);
 
         if (ent.flRotation >= 0.0f && ent.flRotation < M_PI / 2) {
             kDir = k_unDir_NorthEast;
@@ -1010,8 +1071,8 @@ static inline void AnimatedLogic(float flDelta, Game_Data& game_data) {
             kDir = k_unDir_SouthWest;
         }
 
-        ImGui::Text("Direction: %u", kDir);
-        ImGui::Text("Current anim: %c", animated.chCurrent);
+        // ImGui::Text("Direction: %u", kDir);
+        // ImGui::Text("Current anim: %c", animated.chCurrent);
 
         // TODO(danielm): we desperately need that fucking RAII refcount system because
         // this gonna cause so much leaks and double frees
@@ -1025,7 +1086,7 @@ static inline void AnimatedLogic(float flDelta, Game_Data& game_data) {
             }
         }
     }
-    ImGui::End();
+    // ImGui::End();
 }
 
 static void InGameLogic(float flDelta) {
@@ -1087,12 +1148,14 @@ static void InGameLogic(float flDelta) {
         dc.kind = dq::k_unDCDrawRect;
         auto& r = dc.draw_rect;
         r.r = 0.6f; r.g = 0.0f; r.b = 0.0f;
+        r.a = 0.2f;
         r.x0 = ent.position[0];
         r.y0 = ent.position[1] + HPBAR_OFF_Y_TOP;
         r.x1 = ent.position[0] + HPBAR_SIZ_X;
         r.y1 = ent.position[1] + HPBAR_OFF_Y_BOT;
         dq.Add(dc);
         r.r = 0.0f; r.g = 1.0f; r.b = 0.0f;
+        r.a = 0.7f;
         r.x0 = ent.position[0];
         r.y0 = ent.position[1] + HPBAR_OFF_Y_TOP;
         r.x1 = ent.position[0] + HPBAR_SIZ_X * flHpPercent;
@@ -1148,6 +1211,7 @@ static void InGameLogic(float flDelta) {
     }
 
     // Entity debug UI
+    /*
     ImGui::Begin("Entities", NULL, ImGuiWindowFlags_NoCollapse);
     for (Entity_ID i = 0; i < game_data.entities.size(); i++) {
         auto& slot = game_data.entities[i];
@@ -1161,6 +1225,7 @@ static void InGameLogic(float flDelta) {
         }
     }
     ImGui::End();
+    */
 
     /*
     // Visualize level geometry
@@ -1175,6 +1240,10 @@ static void InGameLogic(float flDelta) {
         dq.Add(dc);
     }
     */
+
+    if (gpAppData->stage != Game_Stage::Game) {
+        OnReset();
+    }
 }
 
 static void FreeMenuAssets() {
@@ -1224,6 +1293,7 @@ static Application_Result MenuLogic(float flDelta) {
                         switch (i) {
                         case MENU_BTN_START:
                             gpAppData->stage = Game_Stage::Game;
+                            CreatePlayer();
                             break;
                         case MENU_BTN_TUTORIAL:
                             gpAppData->stage = Game_Stage::Tutorial;
@@ -1308,7 +1378,7 @@ Application_Result OnInput(SDL_Event const& ev) {
         if (!gpAppData->menu_data.has_value()) {
             gpAppData->cameraZoom -= ev.wheel.y;
             if (gpAppData->cameraZoom < 1) gpAppData->cameraZoom = 1;
-            if (gpAppData->cameraZoom > 64) gpAppData->cameraZoom = 64;
+            if (gpAppData->cameraZoom > 16) gpAppData->cameraZoom = 16;
         }
     } else if (ev.type == SDL_MOUSEMOTION) {
         auto const vNdcPos =
@@ -1383,6 +1453,12 @@ Application_Result OnReset() {
 
 Application_Result OnShutdown() {
     if (gpAppData != NULL) {
+        for (int i = 0; i < 6; i++) {
+            Mix_FreeChunk(gpAppData->pSndChaingun[i]);
+        }
+        for (int i = 0; i < 3; i++) {
+            Mix_FreeChunk(gpAppData->pSndRailgun[i]);
+        }
         FreeMenuAssets();
         FreeSprite(gpAppData->hSpriteBackground);
         FreeAnimator(gpAppData->hAnimChaingunner);

@@ -40,6 +40,7 @@ struct Wisp {
     Optional<Entity_ID> iPossessed;
     Living mementoLiving;
     float flDashCooldown;
+    unsigned unScore;
 };
 
 struct Melee_Enemy {
@@ -62,6 +63,7 @@ struct Possessable {
     float flPrimaryCooldown, flMaxPrimaryCooldown;
     lm::Vector4 vProjColor;
     float flProjTTL;
+    bool bReguralSfx;
 
     Optional<Dash> dashing;
 };
