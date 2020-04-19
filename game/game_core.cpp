@@ -17,7 +17,6 @@
 #include "projectiles.h"
 
 #include <unordered_set>
-#include <SDL_mixer.h>
 
 template<typename T>
 using Set = std::unordered_set<T>;
@@ -157,11 +156,6 @@ struct Application_Data {
 
     Optional<Menu_Data> menu_data;
     Optional<Tutorial_Data> tutorial_data;
-
-    Mix_Chunk* pSndChaingun[6];
-    int iChaingunNext = 0;
-    Mix_Chunk* pSndRailgun[3];
-    int iRailgunNext = 0;
 };
 
 static Application_Data* gpAppData = NULL;
@@ -554,18 +548,6 @@ static bool LoadGame() {
 
     LoadBackground("data/background001.png");
 
-    for (int i = 0; i < 6; i++) {
-        char pszPath[64];
-        snprintf(pszPath, 63, "data/snd/chaingun00%d.wav", i + 1);
-        gpAppData->pSndChaingun[i] = Mix_LoadWAV(pszPath);
-    }
-
-    for (int i = 0; i < 3; i++) {
-        char pszPath[64];
-        snprintf(pszPath, 63, "data/snd/railgun00%d.wav", i + 1);
-        gpAppData->pSndRailgun[i] = Mix_LoadWAV(pszPath);
-    }
-
     return true;
 }
 
@@ -614,16 +596,6 @@ static void PlayerGunShoot(Wisp& me, lm::Vector4 const& vOrigin, lm::Vector4 con
     proj.vColor = vColor;
     proj.flTTL = flTTL;
     Projectiles_Add(proj);
-
-    Mix_Chunk* pChunk = NULL;
-    if (pos.bReguralSfx) {
-        pChunk = gpAppData->pSndChaingun[gpAppData->iChaingunNext];
-        gpAppData->iChaingunNext = (gpAppData->iChaingunNext + 1) % 6;
-    } else {
-        pChunk = gpAppData->pSndRailgun[gpAppData->iRailgunNext];
-        gpAppData->iRailgunNext = (gpAppData->iRailgunNext + 1) % 3;
-    }
-    // Mix_PlayChannel(-1, pChunk, 0);
 }
 
 static void MeleeAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 const& vDir) {
@@ -1453,12 +1425,6 @@ Application_Result OnReset() {
 
 Application_Result OnShutdown() {
     if (gpAppData != NULL) {
-        for (int i = 0; i < 6; i++) {
-            Mix_FreeChunk(gpAppData->pSndChaingun[i]);
-        }
-        for (int i = 0; i < 3; i++) {
-            Mix_FreeChunk(gpAppData->pSndRailgun[i]);
-        }
         FreeMenuAssets();
         FreeSprite(gpAppData->hSpriteBackground);
         FreeAnimator(gpAppData->hAnimChaingunner);

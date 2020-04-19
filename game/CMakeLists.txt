@@ -21,9 +21,9 @@ set(SRC
 )
 
 add_executable(game ${SRC})
-target_include_directories(game PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIR} ${SDL2_MIXER_INCLUDE_DIR})
+target_include_directories(game PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIR})
 target_link_directories(game PRIVATE ${SDL2TTF_LIBRARY} )
-target_link_libraries(game PRIVATE ${SDL2_LIBRARIES} ${SDL2_MIXER_LIBRARY} SDL2_ttf glad imgui)
+target_link_libraries(game PRIVATE ${SDL2_LIBRARIES} SDL2_ttf glad imgui)
 target_compile_options(game PRIVATE "-mfma")
 target_precompile_headers(game PRIVATE "stdafx.h")
 ld_builddir(game)

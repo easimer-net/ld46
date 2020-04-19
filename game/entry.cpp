@@ -9,7 +9,6 @@
 #include "render_queue.h"
 #include "shaders.h"
 #include "projectiles.h"
-#include <SDL_mixer.h>
 
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
@@ -214,10 +213,6 @@ int main(int argc, char** argv) {
 
         Projectiles_Init();
 
-        Mix_Init(0);
-        Mix_OpenAudio(48000, AUDIO_S16LSB, 2, 4096);
-        Mix_Volume(-1, 8);
-
         while (!bExit) {
             rq.Clear();
 
@@ -304,14 +299,12 @@ int main(int argc, char** argv) {
             }
         }
 
-        Mix_CloseAudio();
         Projectiles_Cleanup();
 
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplSDL2_Shutdown();
     }
 
-    Mix_Quit();
     SDL_Quit();
     return 0;
 }
