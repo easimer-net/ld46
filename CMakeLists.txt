@@ -110,4 +110,5 @@ find_package(SDL2_ttf REQUIRED)
 
 add_subdirectory(glad)
 add_subdirectory(imgui)
+add_subdirectory(libgame)
 add_subdirectory(game)
