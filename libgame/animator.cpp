@@ -4,7 +4,6 @@
 //
 
 #include "stdafx.h"
-#include "common.h"
 #include "animator.h"
 #include <unordered_map>
 

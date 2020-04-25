@@ -3,18 +3,12 @@ set(SRC
 	common.h
 	render_queue.h
 	draw_queue.h
-	shaders.h
 	mechaspirit.h
 	collision.h
-	animator.h
-	projectiles.h
 
 	entry.cpp
 	game_core.cpp
-	shaders.cpp
 	collision.cpp
-	animator.cpp
-	projectiles.cpp
 )
 
 add_executable(game ${SRC})

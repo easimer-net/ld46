@@ -1,8 +1,14 @@
 set(SRC_LIBGAME
 	stdafx.h
 	stb_image.h
+	animator.cpp
+	projectiles.cpp
+	shaders.cpp
 	textures.cpp
 
+	../public/animator.h
+	../public/projectiles.h
+	../public/shaders.h
 	../public/textures.h
 )
 
