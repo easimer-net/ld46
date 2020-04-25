@@ -13,3 +13,4 @@ set(SRC_LIBGAME
 )
 
 add_library(libgame STATIC ${SRC_LIBGAME})
+target_precompile_headers(libgame PRIVATE "stdafx.h")
