@@ -37,41 +37,7 @@ struct Corpse {
 };
 
 struct Wisp {
-    Optional<Entity_ID> iPossessed;
-    Living mementoLiving;
-    float flDashCooldown;
     unsigned unScore;
-};
-
-struct Melee_Enemy {
-    float flAttackCooldown;
-};
-
-struct Ranged_Enemy {
-    float flAttackCooldown;
-};
-
-struct Dash {
-    lm::Vector4 vDir;
-    float flTimeLeft;
-};
-
-struct Possessable {
-    // TODO(danielm): constants should go into some kind of flyweight
-    float flMaxControlSpeed;
-    float flPrimaryDamage;
-    float flPrimaryCooldown, flMaxPrimaryCooldown;
-    lm::Vector4 vProjColor;
-    float flProjTTL;
-    bool bReguralSfx;
-
-    Optional<Dash> dashing;
-};
-
-struct Chaingunner {
-};
-
-struct Railgunner {
 };
 
 struct Animated {
@@ -94,10 +60,5 @@ struct Game_Data {
     E_Map<Living> living;
     E_Map<Corpse> corpses;
     E_Map<Wisp> wisps;
-    E_Map<Melee_Enemy> melee_enemies;
-    E_Map<Ranged_Enemy> ranged_enemies;
-    E_Map<Possessable> possessables;
-    E_Map<Chaingunner> chaingunners;
-    E_Map<Railgunner> railgunners;
     E_Map<Animated> animated;
 };

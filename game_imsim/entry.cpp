@@ -9,6 +9,7 @@
 #include "render_queue.h"
 #include "shaders.h"
 #include "projectiles.h"
+#include "convar.h"
 
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
@@ -65,6 +66,7 @@ static void GLMessageCallback
 #endif
 }
 
+Application_Result OnLoad();
 Application_Result OnPreFrame(float flDelta);
 Application_Result OnInput(SDL_Event const& ev);
 Application_Result OnDraw(rq::Render_Queue* pQueue);
@@ -180,6 +182,8 @@ int main(int argc, char** argv) {
     bool bExit = false;
     ImGuiContext* pImGuiCtx = NULL;
 
+    Convar_Init();
+
     if (R) {
         SDL_GL_SetSwapInterval(-1);
         printf("Initializing GLAD\n");
@@ -213,8 +217,68 @@ int main(int argc, char** argv) {
 
         Projectiles_Init();
 
+        // Init game
+        res = OnLoad();
+        CHECK_QUIT();
+
         while (!bExit) {
             rq.Clear();
+            bool const bImGuiInterceptKbd = io.WantCaptureKeyboard;
+            bool const bImGuiInterceptMouse = io.WantCaptureMouse;
+            while (SDL_PollEvent(&ev)) {
+
+                bool bPassEventToImGui = true;
+                switch (ev.type) {
+                case SDL_QUIT:
+                {
+                    bExit = true;
+                    break;
+                }
+                case SDL_KEYDOWN:
+                {
+                    if (!bImGuiInterceptKbd) {
+                        res = OnInput(ev);
+                        CHECK_QUIT();
+                    }
+                    // WORKAROUND(danielm): mod keys trigger an assertion in imgui
+                    /*
+                    if (ev.key.keysym.mod != 0) {
+                        bPassEventToImGui = false;
+                    }
+                    */
+                    break;
+                }
+                case SDL_KEYUP:
+                {
+                    if (!bImGuiInterceptKbd) {
+                        res = OnInput(ev);
+                        CHECK_QUIT();
+                    }
+                    // WORKAROUND(danielm): mod keys trigger an assertion in imgui
+                    /*
+                    if (ev.key.keysym.mod != 0) {
+                        bPassEventToImGui = false;
+                    }
+                    */
+                    break;
+                }
+                case SDL_MOUSEBUTTONDOWN:
+                case SDL_MOUSEBUTTONUP:
+                case SDL_MOUSEMOTION:
+                case SDL_MOUSEWHEEL:
+                {
+                    if (!bImGuiInterceptMouse) {
+                        res = OnInput(ev);
+                        CHECK_QUIT();
+                    }
+                    break;
+                }
+                }
+
+                if (bPassEventToImGui) {
+                    ImGui_ImplSDL2_ProcessEvent(&ev);
+                }
+            }
 
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplSDL2_NewFrame(R);
@@ -228,50 +292,6 @@ int main(int argc, char** argv) {
 
             Projectiles_Tick(flDelta);
 
-            while (SDL_PollEvent(&ev)) {
-
-            bool bPassEventToImGui = true;
-                switch (ev.type) {
-                case SDL_QUIT:
-                {
-                    bExit = true;
-                    break;
-                }
-                case SDL_KEYDOWN:
-                {
-                    res = OnInput(ev);
-                    CHECK_QUIT();
-                    // WORKAROUND(danielm): mod keys trigger an assertion in imgui
-                    if (ev.key.keysym.mod != 0) {
-                        bPassEventToImGui = false;
-                    }
-                    break;
-                }
-                case SDL_KEYUP:
-                {
-                    res = OnInput(ev);
-                    CHECK_QUIT();
-                    // WORKAROUND(danielm): mod keys trigger an assertion in imgui
-                    if (ev.key.keysym.mod != 0) {
-                        bPassEventToImGui = false;
-                    }
-                    break;
-                }
-                case SDL_MOUSEBUTTONDOWN:
-                case SDL_MOUSEBUTTONUP:
-                case SDL_MOUSEMOTION:
-                case SDL_MOUSEWHEEL:
-                {
-                    res = OnInput(ev);
-                    CHECK_QUIT();
-                    break;
-                }
-                }
-
-                if (bPassEventToImGui) {
-                    ImGui_ImplSDL2_ProcessEvent(&ev);
-                }
-            }
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -304,6 +324,8 @@ int main(int argc, char** argv) {
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplSDL2_Shutdown();
     }
+
+    Convar_Shutdown();
 
     SDL_Quit();
     return 0;

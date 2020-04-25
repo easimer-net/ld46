@@ -15,6 +15,7 @@
 #include "collision.h"
 #include "animator.h"
 #include "projectiles.h"
+#include "convar.h"
 
 #include <unordered_set>
 
@@ -104,6 +105,8 @@ gpAppData->playerMoveDir = (gpAppData->playerMoveDir & (~(x))) | (c ? (x) : 0);
 #define TUT_EXIT (5)
 #define TUT_MAX (6)
 
+#define CONSOLE_BUFFER_SIZ (64)
+
 enum class Game_Stage {
     Menu, Tutorial, Game,
 };
@@ -156,6 +159,8 @@ struct Application_Data {
 
     Optional<Menu_Data> menu_data;
     Optional<Tutorial_Data> tutorial_data;
+
+    char pszConBuf[CONSOLE_BUFFER_SIZ] = { 0 };
 };
 
 static Application_Data* gpAppData = NULL;
@@ -284,11 +289,6 @@ static void DeleteEntity(Entity_ID id) {
         game_data.living.erase(id);
         game_data.corpses.erase(id);
         game_data.wisps.erase(id);
-        game_data.melee_enemies.erase(id);
-        game_data.ranged_enemies.erase(id);
-        game_data.possessables.erase(id);
-        game_data.chaingunners.erase(id);
-        game_data.railgunners.erase(id);
         game_data.animated.erase(id);
     }
 }
@@ -313,136 +313,6 @@ static Entity_ID CreatePlayer() {
     };
 
     return ret;
-}
-
-static void LoadBackground(char const* pszPath) {
-    gpAppData->hSpriteBackground = LoadSprite(pszPath);
-}
-
-static void DrawBackground(dq::Draw_Queue& dq) {
-    dq::Draw_Command dc;
-    dc.kind = dq::k_unDCDrawWorldThing;
-    auto& d = dc.draw_world_thing;
-    d.width = 24;
-    d.height = 24;
-    d.x = 0;
-    d.y = 0;
-    d.hSprite = gpAppData->hSpriteBackground;
-    dq.Add(dc);
-}
-
-static char ChaingunnerASTF(Entity_ID iEnt, char chCurrent) {
-    if (gpAppData->game_data.living.count(iEnt)) {
-        auto& animated = gpAppData->game_data.animated[iEnt];
-        if (animated.bAttacking) {
-            return 'a';
-        }
-        return 'i';
-    } else {
-        // TODO(danielm): dead anim
-        return 'i';
-    }
-}
-
-static void SpawnChaingunner() {
-    auto& game_data = gpAppData->game_data;
-    auto id = AllocateEntity();
-    auto& ent = game_data.entities[id];
-    auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
-    ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
-    ent.size = lm::Vector4(2, 2, 1);
-    ent.hSprite = NULL;
-    game_data.chaingunners[id] = {};
-    game_data.living[id] = { CHAINGUNNER_MAX_HEALTH, CHAINGUNNER_MAX_HEALTH };
-    game_data.possessables[id] = { 
-        CHAINGUNNER_MAX_SPEED,
-        CHAINGUNNER_PRIMARY_DAMAGE,
-        CHAINGUNNER_PRIMARY_COOLDOWN, CHAINGUNNER_PRIMARY_COOLDOWN,
-        lm::Vector4(1.0f, 0.85f, 0.2f), 0.25f,
-        true,
-    };
-    game_data.animated[id] = {
-        gpAppData->hAnimChaingunner,
-        'i',
-        ChaingunnerASTF,
-        0, 0.0f,
-    };
-    printf("Spawned chaingunner\n");
-}
-
-static void SpawnRailgunner() {
-    auto& game_data = gpAppData->game_data;
-    auto id = AllocateEntity();
-    auto& ent = game_data.entities[id];
-    auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
-    ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
-    ent.size = lm::Vector4(2, 2, 1);
-    ent.hSprite = LoadSprite("data/lmecha.png");
-    game_data.railgunners[id] = {};
-    game_data.living[id] = { RAILGUNNER_MAX_HEALTH, RAILGUNNER_MAX_HEALTH };
-    game_data.possessables[id] = { 
-        RAILGUNNER_MAX_SPEED,
-        RAILGUNNER_PRIMARY_DAMAGE,
-        RAILGUNNER_PRIMARY_COOLDOWN, RAILGUNNER_PRIMARY_COOLDOWN,
-        lm::Vector4(0.15f, 0.15f, 1.0f), 1.0f,
-        false,
-    };
-    game_data.animated[id] = {
-        gpAppData->hAnimRailgunner,
-        'i',
-        ChaingunnerASTF,
-        0, 0.0f,
-    };
-    printf("Spawned railgunner\n");
-}
-
-static char EnemyASTF(Entity_ID id, char chCurrent) {
-    if (gpAppData->game_data.living.count(id)) {
-        auto& animated = gpAppData->game_data.animated[id];
-        if (animated.bAttacking) {
-            return 'a';
-        }
-        return 'i';
-    } else {
-        return 'd';
-    }
-}
-
-static void SpawnMelee() {
-    auto& game_data = gpAppData->game_data;
-    auto id = AllocateEntity();
-    auto& ent = game_data.entities[id];
-    auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
-    ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
-    ent.size = lm::Vector4(1, 1.5, 1);
-    ent.hSprite = NULL;
-    game_data.living[id] = {MELEE_HEALTH, MELEE_HEALTH};
-    game_data.melee_enemies[id] = {};
-    game_data.animated[id] = {
-        gpAppData->hAnimMelee,
-        'i',
-        EnemyASTF,
-        0, 0.0f,
-    };
-}
-
-
-static void SpawnRanged() {
-    auto& game_data = gpAppData->game_data;
-    auto id = AllocateEntity();
-    auto& ent = game_data.entities[id];
-    auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
-    ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
-    ent.size = lm::Vector4(1, 1.5, 1);
-    ent.hSprite = NULL;
-    game_data.animated[id] = {
-        gpAppData->hAnimRanged,
-        'i',
-        EnemyASTF,
-        0, 0.0f,
-    };
-    game_data.living[id] = {RANGED_HEALTH, RANGED_HEALTH};
-    game_data.ranged_enemies[id] = {};
 }
 
 static void RandomSpawn(size_t nMinCount, size_t nMaxCount, float flChance, std::function<size_t()> getCount, std::function<void()> spawn) {
@@ -540,18 +410,12 @@ static bool LoadGame() {
         {tl, tr + up},      // top
     };
 
-    gpAppData->hAnimChaingunner = BuildChaingunnerAnimations();
-    gpAppData->hAnimRailgunner = BuildRailgunnerAnimations();
     gpAppData->hAnimWisp = BuildWispAnimations();
-    gpAppData->hAnimRanged = BuildRangedAnimations();
-    gpAppData->hAnimMelee = BuildMeleeAnimations();
-
-    LoadBackground("data/background001.png");
 
     return true;
 }
 
-static void PlayerGunShoot(Wisp& me, lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, float flDamage, lm::Vector4 const& vColor, float flTTL, Possessable const& pos) {
+static void PlayerGunShoot(Wisp& me, lm::Vector4 const& vOrigin, lm::Vector4 const& vDir, float flDamage, lm::Vector4 const& vColor, float flTTL) {
     auto& game_data = gpAppData->game_data;
     Collision_World cw;
 
@@ -574,10 +438,8 @@ static void PlayerGunShoot(Wisp& me, lm::Vector4 const& vOrigin, lm::Vector4 con
     auto res = CheckCollisions(cw, ray);
     std::vector<Entity_ID> livingIds;
     for (auto coll : res) {
-        if (game_data.melee_enemies.count(coll) || game_data.ranged_enemies.count(coll)) {
-            if (game_data.living.count(coll)) {
-                livingIds.push_back(coll);
-            }
+        if (game_data.living.count(coll)) {
+            livingIds.push_back(coll);
         }
     }
 
@@ -691,146 +553,6 @@ static void RangedAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 
     Projectiles_Add(proj);
 }
 
-static inline void MeleeLogic(float flDelta, Game_Data& game_data) {
-    RandomSpawn(MELEE_MIN_SPAWNED, MELEE_MAX_SPAWNED, flDelta * MELEE_SPAWN_CHANCE,
-        [=]() { return game_data.melee_enemies.size(); }, SpawnMelee);
-    for (auto& kvMelee : game_data.melee_enemies) {
-        auto& entMelee = kvMelee.second;
-        auto& ent = game_data.entities[kvMelee.first];
-        auto pos = ent.position;
-
-        Optional<Entity_ID> iNearestPlayer;
-        float flPlayerDist = INFINITY;
-        lm::Vector4 vTowardsNearest;
-
-        for (auto& kvWisp : game_data.wisps) {
-            auto& entWisp = game_data.entities[kvWisp.first];
-            auto vDir = entWisp.position - pos;
-            auto flDist = lm::LengthSq(vDir);
-            if (flDist < flPlayerDist) {
-                iNearestPlayer = kvWisp.first;
-                flPlayerDist = flDist;
-                vTowardsNearest = vDir;
-            }
-        }
-
-        auto& animated = game_data.animated[kvMelee.first];
-        animated.bAttacking = false;
-
-        if (iNearestPlayer.has_value()) {
-            if (flPlayerDist > MELEE_ATTACK_RANGE_MIN) {
-                // We could be closer to the player
-                auto const flDesiredRot = atan2f(vTowardsNearest[1], vTowardsNearest[0]);
-#if ENEMY_INSTANT_ROTATION
-                ent.flRotation = flDesiredRot;
-                ent.position = ent.position + flDelta * MELEE_MAX_SPEED * lm::Normalized(vTowardsNearest);
-#else
-                auto const flRotation = ent.flRotation;
-                auto flDeltaRot = flDesiredRot - flRotation;
-                // auto const flDeltaRot = flDesiredRot - ent.flRotation;
-                auto const flRatio = abs(flDeltaRot / M_PI);
-                // ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
-                ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
-                auto const vFwd = lm::Vector4(cosf(ent.flRotation), sinf(ent.flRotation));
-                auto const vFwdD = lm::Vector4(cosf(flDesiredRot), sinf(flDesiredRot));
-                // DbgLine(ent.position, ent.position + vFwd);
-                // DbgLine(ent.position, ent.position + vFwdD);
-                ent.position = ent.position + flDelta * MELEE_MAX_SPEED * vFwd;
-
-                while (ent.flRotation > M_PI) {
-                    ent.flRotation -= 2 * M_PI;
-                }
-
-                while (ent.flRotation < -M_PI) {
-                    ent.flRotation += 2 * M_PI;
-                }
-#endif
-            }
-
-            if (flPlayerDist <= MELEE_ATTACK_RANGE_MAX) {
-                // Close enough to the player to attack
-                animated.bAttacking = true;
-                if (entMelee.flAttackCooldown <= 0.0f) {
-                    MeleeAttack(kvMelee.first, ent.position, lm::Normalized(vTowardsNearest));
-                    entMelee.flAttackCooldown = MELEE_ATTACK_COOLDOWN;
-                }
-                entMelee.flAttackCooldown -= flDelta;
-            }
-        }
-    }
-
-}
-
-static inline void RangedLogic(float flDelta, Game_Data& game_data) {
-    RandomSpawn(RANGED_MIN_SPAWNED, RANGED_MAX_SPAWNED, flDelta * RANGED_SPAWN_CHANCE,
-        [=]() { return game_data.ranged_enemies.size(); }, SpawnRanged);
-    for (auto& kvRanged : game_data.ranged_enemies) {
-        auto& entRanged = kvRanged.second;
-        auto& ent = game_data.entities[kvRanged.first];
-        auto pos = ent.position;
-
-        Optional<Entity_ID> iNearestPlayer;
-        float flPlayerDist = INFINITY;
-        lm::Vector4 vTowardsNearest;
-
-        for (auto& kvWisp : game_data.wisps) {
-            auto& entWisp = game_data.entities[kvWisp.first];
-            auto vDir = entWisp.position - pos;
-            auto flDist = lm::LengthSq(vDir);
-            if (flDist < flPlayerDist) {
-                iNearestPlayer = kvWisp.first;
-                flPlayerDist = flDist;
-                vTowardsNearest = vDir;
-            }
-        }
-
-        auto& animated = game_data.animated[kvRanged.first];
-        animated.bAttacking = false;
-
-        if (iNearestPlayer.has_value()) {
-            if (flPlayerDist > RANGED_ATTACK_RANGE_MIN) {
-                // We could be closer to the player
-                auto const flDesiredRot = atan2f(vTowardsNearest[1], vTowardsNearest[0]);
-#if ENEMY_INSTANT_ROTATION
-                ent.flRotation = flDesiredRot;
-                ent.position = ent.position + flDelta * MELEE_MAX_SPEED * lm::Normalized(vTowardsNearest);
-#else
-                auto const flRotation = ent.flRotation;
-                auto flDeltaRot = flDesiredRot - flRotation;
-                // auto const flDeltaRot = flDesiredRot - ent.flRotation;
-                auto const flRatio = abs(flDeltaRot / M_PI);
-                // ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
-                ent.flRotation += flRatio * MELEE_MAX_ROT_SPEED * flDelta;
-                auto const vFwd = lm::Vector4(cosf(ent.flRotation), sinf(ent.flRotation));
-                auto const vFwdD = lm::Vector4(cosf(flDesiredRot), sinf(flDesiredRot));
-                // DbgLine(ent.position, ent.position + vFwd);
-                // DbgLine(ent.position, ent.position + vFwdD);
-                ent.position = ent.position + flDelta * MELEE_MAX_SPEED * vFwd;
-
-                while (ent.flRotation > M_PI) {
-                    ent.flRotation -= 2 * M_PI;
-                }
-
-                while (ent.flRotation < -M_PI) {
-                    ent.flRotation += 2 * M_PI;
-                }
-#endif
-            }
-
-            if (flPlayerDist <= RANGED_ATTACK_RANGE_MAX) {
-                // Close enough to the player to attack
-                animated.bAttacking = true;
-                if (entRanged.flAttackCooldown <= 0.0f) {
-                    RangedAttack(kvRanged.first, ent.position, lm::Normalized(vTowardsNearest));
-                    entRanged.flAttackCooldown = RANGED_ATTACK_COOLDOWN;
-                }
-                entRanged.flAttackCooldown -= flDelta;
-            }
-        }
-    }
-
-}
-
 static inline void WispLogic(float flDelta, Game_Data& game_data) {
     // Wisp
     // Apply movement input, set sprite
@@ -846,43 +568,10 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
         auto& wisp = kvWisp.second;
         auto& pos = entWisp.position;
         lm::Vector4 newPos = pos;
-        float flCurrentSpeed;
+        float flCurrentSpeed = PLAYER_SPEED;
         auto const vLookDir = lm::Normalized(gpAppData->cursorWorldPos - entWisp.position);
 
         entWisp.flRotation = atan2f(vLookDir[1], vLookDir[0]);
-
-        wisp.flDashCooldown -= flDelta;
-
-        if (wisp.iPossessed.has_value()) {
-            entWisp.hSprite = NULL;
-
-            auto id = wisp.iPossessed.value();
-            auto& possessed = game_data.entities[id];
-            auto& possessable = game_data.possessables[id];
-
-            if (gpAppData->bPlayerDash) {
-                if (!possessable.dashing && wisp.flDashCooldown <= 0.0f) {
-                    possessable.dashing = {
-                        vPlayerMoveDir,
-                        PLAYER_DASH_DURATION,
-                    };
-                    wisp.flDashCooldown = PLAYER_DASH_COOLDOWN;
-                }
-            }
-
-            if (possessable.dashing) {
-                auto& D = possessable.dashing.value();
-                newPos = newPos + PLAYER_DASH_SPEED * flDelta * D.vDir;
-                D.flTimeLeft -= flDelta;
-
-                if (D.flTimeLeft <= 0.0f) {
-                    possessable.dashing.reset();
-                }
-            }
-
-            possessed.position = pos;
-            possessed.flRotation = entWisp.flRotation;
-        }
 
         // Follow camera
         auto const vDist = pos - gpAppData->cameraPosition;
@@ -895,16 +584,6 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
             if (game_data.living.count(iWisp)) {
                 auto& hp = game_data.living[iWisp];
                 ImGui::Text("Health: %f%%", 100 * hp.flHealth / hp.flMaxHealth);
-            } else if (wisp.iPossessed.has_value()) {
-                if (game_data.living.count(wisp.iPossessed.value())) {
-                    auto& hp = game_data.living[wisp.iPossessed.value()];
-                    auto& poss = game_data.possessables[wisp.iPossessed.value()];
-                    ImGui::Text("Machine Energy: %f%%", 100 * hp.flHealth / hp.flMaxHealth);
-                }
-
-                if (wisp.flDashCooldown > 0.0f) {
-                    ImGui::Text("Dash: %f seconds", wisp.flDashCooldown);
-                }
             } else {
                 if (ImGui::Button("Restart")) {
                     gpAppData->stage = Game_Stage::Menu;
@@ -912,79 +591,6 @@ static inline void WispLogic(float flDelta, Game_Data& game_data) {
             }
         }
         ImGui::End();
-
-        // Possession
-        if (!kvWisp.second.iPossessed.has_value()) {
-            Optional<Entity_ID> iNearest;
-            flCurrentSpeed = PLAYER_SPEED;
-            float flNearest = INFINITY;
-            for (auto& kvPossessable : game_data.possessables) {
-                auto& ent = game_data.entities[kvPossessable.first];
-                auto const flDist = lm::LengthSq(ent.position - entWisp.position);
-                if (flDist < flNearest) {
-                    iNearest = kvPossessable.first;
-                    flNearest = flDist;
-                }
-            }
-
-            // we calculate squared distance above
-            if (flNearest < MIN_POSSESSION_DIST * MIN_POSSESSION_DIST) {
-                if (gpAppData->bPlayerWantsToPossess) {
-                    kvWisp.second.iPossessed = iNearest.value();
-                    // Save health data
-                    auto& wispLiving = game_data.living[iWisp];
-                    wisp.mementoLiving = wispLiving;
-                    game_data.living.erase(iWisp);
-                    // Set size to infinitely small
-                    entWisp.size = lm::Vector4();
-                    // Remove animation data
-                    game_data.animated.erase(iWisp);
-                    printf("Wisp %llu possessed entity %llu\n", kvWisp.first, iNearest.value());
-                }
-                // TODO(danielm): draw possession targeting aura around the entity
-            }
-        } else {
-            auto iPossessed = wisp.iPossessed.value();
-            auto& possessed = game_data.possessables[iPossessed];
-            flCurrentSpeed = possessed.flMaxControlSpeed;
-            auto& living = game_data.living[iPossessed];
-            if (living.flHealth <= 0) {
-                printf("Possessed entity has died!\n");
-                // Remove possession
-                wisp.iPossessed.reset();
-                // Restore health info
-                game_data.living[iWisp] = wisp.mementoLiving;
-                printf("Restoring wisp living info: %f/%f\n", wisp.mementoLiving.flHealth, wisp.mementoLiving.flMaxHealth);
-                // Restore size
-                entWisp.size = lm::Vector4(1, 1, 1);
-
-                // Animation data
-                game_data.animated[iWisp] = {
-                    gpAppData->hAnimWisp,
-                    'i',
-                    NULL,
-                    0, 0.0f,
-                };
-
-                game_data.corpses[iPossessed] = { 0.0f };
-                // Make it unpossessable
-                game_data.possessables.erase(iPossessed);
-                game_data.living.erase(iPossessed);
-            } else {
-                auto& animated = game_data.animated[iPossessed];
-                // Attack
-                if (gpAppData->bPlayerPrimaryAttack) {
-                    if (possessed.flPrimaryCooldown <= 0.0f) {
-                        possessed.flPrimaryCooldown = possessed.flMaxPrimaryCooldown;
-                        // DbgLine(entWisp.position, gpAppData->cursorWorldPos);
-                        PlayerGunShoot(wisp, entWisp.position, vLookDir, possessed.flPrimaryDamage, possessed.vProjColor, possessed.flProjTTL, possessed);
-                        animated.bAttacking = true;
-                    }
-                } else {
-                    animated.bAttacking = false;
-                }
-            }
-        }
 
         newPos = newPos + flCurrentSpeed * flDelta * vPlayerMoveDir;
         Collision_World cw;
@@ -1066,8 +672,6 @@ static inline void AnimatedLogic(float flDelta, Game_Data& game_data) {
 static void InGameLogic(float flDelta) {
     auto& dq = gpAppData->dq;
 
-    DrawBackground(dq);
-
     // =======================
     // Game logic
     // =======================
@@ -1075,38 +679,6 @@ static void InGameLogic(float flDelta) {
     auto& game_data = gpAppData->game_data;
 
     WispLogic(flDelta, game_data);
-
-    // Chaingunner
-    RandomSpawn(CHAINGUNNER_MIN_SPAWNED, CHAINGUNNER_MAX_SPAWNED, CHAINGUNNER_SPAWN_CHANCE,
-        [=]() {
-            return game_data.chaingunners.size();
-    }, SpawnChaingunner);
-
-    for (auto& kv : game_data.chaingunners) {
-        auto& ent = game_data.entities[kv.first];
-    }
-
-    // Railgunner
-    RandomSpawn(RAILGUNNER_MIN_SPAWNED, RAILGUNNER_MAX_SPAWNED, RAILGUNNER_SPAWN_CHANCE,
-        [=]() {
-            return game_data.railgunners.size();
-    }, SpawnRailgunner);
-
-    for (auto& kv : game_data.chaingunners) {
-        auto& ent = game_data.entities[kv.first];
-    }
-
-    // Possessables
-    for (auto& kvPos : game_data.possessables) {
-        auto& pos = kvPos.second;
-        pos.flPrimaryCooldown -= flDelta;
-    }
-
-    // Melee enemies
-    MeleeLogic(flDelta, game_data);
-
-    // Ranged enemies
-    RangedLogic(flDelta, game_data);
 
     // Living
     Set<Entity_ID> diedEntities;
@@ -1139,10 +711,7 @@ static void InGameLogic(float flDelta) {
     for (auto iLiving : diedEntities) {
         game_data.living.erase(iLiving);
         game_data.corpses[iLiving] = {};
-        game_data.melee_enemies.erase(iLiving);
-        game_data.ranged_enemies.erase(iLiving);
         game_data.wisps.erase(iLiving);
-        game_data.possessables.erase(iLiving);
         if (game_data.animated.count(iLiving)) {
             auto& anim = game_data.animated[iLiving];
             anim.chCurrent = 'd';
@@ -1184,22 +753,34 @@ static void InGameLogic(float flDelta) {
         }
     }
 
-    // Entity debug UI
-    /*
-    ImGui::Begin("Entities", NULL, ImGuiWindowFlags_NoCollapse);
-    for (Entity_ID i = 0; i < game_data.entities.size(); i++) {
-        auto& slot = game_data.entities[i];
-        if (slot.bUsed) {
-            ImGui::Separator();
-            ImGui::Text("Entity #%llu", i);
-            ImGui::InputFloat4("Position", slot.position.m_flValues, 5);
-            ImGui::InputFloat2("Size", slot.size.m_flValues, 5);
-            ImGui::InputFloat("Rotation", &slot.flRotation);
-            ImGui::Text("Sprite: %x", slot.hSprite);
+    // Console
+#ifdef _DEBUG
+    if (ImGui::Begin("Console")) {
+        ImGui::SameLine();
+        ImGui::InputText(">", gpAppData->pszConBuf, CONSOLE_BUFFER_SIZ);
+        if (ImGui::Button("Send")) {
+
         }
     }
     ImGui::End();
-    */
+#endif
+
+    // Entity debug UI
+    if (Convar_Get("ui_entdbg")) {
+        ImGui::Begin("Entities", NULL, ImGuiWindowFlags_NoCollapse);
+        for (Entity_ID i = 0; i < game_data.entities.size(); i++) {
+            auto& slot = game_data.entities[i];
+            if (slot.bUsed) {
+                ImGui::Separator();
+                ImGui::Text("Entity #%llu", i);
+                ImGui::InputFloat4("Position", slot.position.m_flValues, 5);
+                ImGui::InputFloat2("Size", slot.size.m_flValues, 5);
+                ImGui::InputFloat("Rotation", &slot.flRotation);
+                ImGui::Text("Sprite: %x", slot.hSprite);
+            }
+        }
+        ImGui::End();
+    }
 
     /*
     // Visualize level geometry
@@ -1301,13 +882,17 @@ static Application_Result MenuLogic(float flDelta) {
     return ret;
 }
 
-Application_Result OnPreFrame(float flDelta) {
+Application_Result OnLoad() {
     if (gpAppData == NULL) {
         if (!LoadGame()) {
             return k_nApplication_Result_GeneralFailure;
         }
     }
 
+    return k_nApplication_Result_OK;
+}
+
+Application_Result OnPreFrame(float flDelta) {
     Application_Result ret = k_nApplication_Result_OK;
 
     switch (gpAppData->stage) {
@@ -1414,11 +999,6 @@ Application_Result OnReset() {
         gpAppData->game_data.living.clear();
         gpAppData->game_data.corpses.clear();
         gpAppData->game_data.wisps.clear();
-        gpAppData->game_data.melee_enemies.clear();
-        gpAppData->game_data.ranged_enemies.clear();
-        gpAppData->game_data.possessables.clear();
-        gpAppData->game_data.chaingunners.clear();
-        gpAppData->game_data.railgunners.clear();
         gpAppData->game_data.animated.clear();
     }
 

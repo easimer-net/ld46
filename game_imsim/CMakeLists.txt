@@ -4,6 +4,10 @@ set(SRC
 	render_queue.h
 	draw_queue.h
 	imsim.h
+	serialization.cpp
+	serialization.h
+	convar.cpp
+	convar.h
 
 	entry.cpp
 	game_core.cpp
