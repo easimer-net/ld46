@@ -789,19 +789,19 @@ static void InGameLogic(float flDelta) {
         ImGui::End();
     }
 
-    /*
     // Visualize level geometry
-    for (auto const& g : gpAppData->levelGeometry) {
-        dq::Draw_Command dc;
-        dc.kind = dq::k_unDCDrawRect;
-        dc.draw_rect.x0 = g.min[0];
-        dc.draw_rect.y0 = g.min[1];
-        dc.draw_rect.x1 = g.max[0];
-        dc.draw_rect.y1 = g.max[1];
-        dc.draw_rect.r = dc.draw_rect.g = dc.draw_rect.b = 1.0f;
-        dq.Add(dc);
+    if (Convar_Get("r_visgeo")) {
+        for (auto const& g : gpAppData->levelGeometry) {
+            dq::Draw_Command dc;
+            dc.kind = dq::k_unDCDrawRect;
+            dc.draw_rect.x0 = g.min[0];
+            dc.draw_rect.y0 = g.min[1];
+            dc.draw_rect.x1 = g.max[0];
+            dc.draw_rect.y1 = g.max[1];
+            dc.draw_rect.r = dc.draw_rect.g = dc.draw_rect.b = dc.draw_rect.a = 1.0f;
+            dq.Add(dc);
+        }
     }
-    */
 
     if (gpAppData->stage != Game_Stage::Game) {
         OnReset();
