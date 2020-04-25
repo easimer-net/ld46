@@ -4,11 +4,9 @@ set(SRC
 	render_queue.h
 	draw_queue.h
 	mechaspirit.h
-	collision.h
 
 	entry.cpp
 	game_core.cpp
-	collision.cpp
 )
 
 if(MSVC)

@@ -626,8 +626,9 @@ static void MeleeAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 c
 
         auto const& ent = game_data.entities[coll];
         float const flDist = lm::LengthSq(ent.position - vOrigin);
-        if (coll != iMe && flDist < flFirstHitDist) {
-            iFirstHit = coll;
+        Entity_ID const iColl = coll;
+        if (iColl != iMe && flDist < flFirstHitDist) {
+            iFirstHit = iColl;
             flFirstHitDist = flDist;
         }
     }
@@ -669,8 +670,9 @@ static void RangedAttack(Entity_ID iMe, lm::Vector4 const& vOrigin, lm::Vector4 
 
         auto const& ent = game_data.entities[coll];
         float const flDist = lm::LengthSq(ent.position - vOrigin);
-        if (coll != iMe && flDist < flFirstHitDist) {
-            iFirstHit = coll;
+        Entity_ID const iColl = coll;
+        if (iColl != iMe && flDist < flFirstHitDist) {
+            iFirstHit = iColl;
             flFirstHitDist = flDist;
         }
     }
