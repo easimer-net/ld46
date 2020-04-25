@@ -759,7 +759,14 @@ static void InGameLogic(float flDelta) {
         ImGui::SameLine();
         ImGui::InputText(">", gpAppData->pszConBuf, CONSOLE_BUFFER_SIZ);
         if (ImGui::Button("Send")) {
+            auto const pszSpace = strchr(gpAppData->pszConBuf, ' ');
+            if (pszSpace != NULL) {
+                *pszSpace = 0;
+                printf("convar: '%s' = '%s'\n", gpAppData->pszConBuf, pszSpace + 1);
+                Convar_Set(gpAppData->pszConBuf, pszSpace + 1);
+            }
 
+            gpAppData->pszConBuf[0] = 0;
         }
     }
     ImGui::End();
