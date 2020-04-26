@@ -14,6 +14,7 @@ set(SRC
 	# game_core.cpp
 	game.cpp
 	editor.cpp
+	draw_queue.cpp
 )
 
 if(MSVC)

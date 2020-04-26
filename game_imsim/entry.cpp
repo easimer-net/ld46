@@ -286,7 +286,11 @@ int main(int argc, char** argv) {
         Application_Result res;
         SDL_Event ev;
         Uint64 uiTimeAfterPreFrame = SDL_GetPerformanceCounter();
-#define CHECK_QUIT() if(res != k_nApplication_Result_OK) bExit = true
+        bool bSwitchEngineMode = false;
+        bool bEngineModeGame = true;
+#define CHECK_QUIT() if(res != k_nApplication_Result_OK && res != k_nApplication_Result_SwitchEngineMode) bExit = true
+#define CHECK_TOOLSWITCH() if(res == k_nApplication_Result_SwitchEngineMode) bSwitchEngineMode = true
+#define CHECK_RESULT() CHECK_TOOLSWITCH(); CHECK_QUIT();
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -300,7 +304,7 @@ int main(int argc, char** argv) {
         // Init game
         // res = OnLoad();
         res = gpApp->OnLoad();
-        CHECK_QUIT();
+        CHECK_RESULT();
 
         while (!bExit) {
             rq.Clear();
@@ -320,7 +324,7 @@ int main(int argc, char** argv) {
                     if (!bImGuiInterceptKbd) {
                         // res = OnInput(ev);
                         res = gpApp->OnInput(ev);
-                        CHECK_QUIT();
+                        CHECK_RESULT();
                     }
                     break;
                 }
@@ -329,7 +333,7 @@ int main(int argc, char** argv) {
                     if (!bImGuiInterceptKbd) {
                         // res = OnInput(ev);
                         res = gpApp->OnInput(ev);
-                        CHECK_QUIT();
+                        CHECK_RESULT();
                     }
                     break;
                 }
@@ -341,7 +345,7 @@ int main(int argc, char** argv) {
                     if (!bImGuiInterceptMouse) {
                         // res = OnInput(ev);
                         res = gpApp->OnInput(ev);
-                        CHECK_QUIT();
+                        CHECK_RESULT();
                     }
                     break;
                 }
@@ -361,7 +365,7 @@ int main(int argc, char** argv) {
             // res = OnPreFrame(flDelta);
             res = gpApp->OnPreFrame(flDelta);
             uiTimeAfterPreFrame = SDL_GetPerformanceCounter();
-            CHECK_QUIT();
+            CHECK_RESULT();
 
             Projectiles_Tick(flDelta);
 
@@ -370,7 +374,7 @@ int main(int argc, char** argv) {
 
             // res = OnDraw(&rq);
             res = gpApp->OnDraw(&rq);
-            CHECK_QUIT();
+            CHECK_RESULT();
 
             ImGui::Render();
 
@@ -380,7 +384,7 @@ int main(int argc, char** argv) {
 
             // res = OnPostFrame();
             res = gpApp->OnPostFrame();
-            CHECK_QUIT();
+            CHECK_RESULT();
 
             auto uiTimeBeforePresent = SDL_GetPerformanceCounter();
             R.Present();
@@ -392,12 +396,26 @@ int main(int argc, char** argv) {
                 auto unDelay = (Uint32)(1000 * flSleep);
                 SDL_Delay(unDelay);
             }
+
+            if (bSwitchEngineMode) {
+                gpApp->Release();
+                if (bEngineModeGame) {
+                    printf("StartApplication(Editor)\n");
+                    gpApp = StartApplication(k_nApplication_Kind_Editor);
+                } else {
+                    printf("StartApplication(Game)\n");
+                    gpApp = StartApplication(k_nApplication_Kind_Game);
+                }
+
+                bEngineModeGame = !bEngineModeGame;
+                bSwitchEngineMode = false;
+            }
         }
 
         Projectiles_Cleanup();
 
         res = gpApp->Release();
-        CHECK_QUIT();
+        CHECK_RESULT();
 
         delete gpCommonData;
 

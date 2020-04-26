@@ -65,3 +65,11 @@ namespace dq {
     };
 
 }
+
+/////////////////////////////////////////
+
+#include "render_queue.h"
+#include "tools.h"
+
+// Converts a draw queue to a low-level render queue
+rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon);
