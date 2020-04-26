@@ -36,8 +36,11 @@ struct Corpse {
     float flTimeSinceDeath;
 };
 
-struct Wisp {
-    unsigned unScore;
+struct Player {
+};
+
+struct Static_Prop {
+    char pszSpritePath[128];
 };
 
 struct Animated {
@@ -51,14 +54,33 @@ struct Animated {
     bool bAttacking;
 };
 
-struct Game_Data {
-    template<typename V> using Vector = std::vector<V>;
-    template<typename K, typename V> using Map = std::unordered_map<K, V>;
+struct Animated_Init {
+    char pszAnimDefPath[128];
+};
+
+#define TABLE_COLLECTION()                                                  \
+    template<typename T> T* CreateInTable(Entity_ID id);                    \
+    template<typename V> using Vector = std::vector<V>;                     \
+    template<typename K, typename V> using Map = std::unordered_map<K, V>;  \
     template<typename V> using E_Map = Map<Entity_ID, V>;
 
+#define ADD_TABLE(name, type)               \
+E_Map<type> name;                           \
+template<>                                  \
+type* CreateInTable<type>(Entity_ID id) {   \
+    name[id] = {};                          \
+    return &name.at(id);                    \
+}
+
+struct Game_Data {
+    TABLE_COLLECTION();
+
     Vector<Entity> entities;
-    E_Map<Living> living;
-    E_Map<Corpse> corpses;
-    E_Map<Wisp> wisps;
-    E_Map<Animated> animated;
+
+    ADD_TABLE(living, Living);
+    ADD_TABLE(corpses, Corpse);
+    ADD_TABLE(players, Player);
+    ADD_TABLE(animated, Animated);
+    ADD_TABLE(static_props, Static_Prop);
+    ADD_TABLE(animated_init, Animated_Init);
 };

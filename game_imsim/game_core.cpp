@@ -16,6 +16,7 @@
 #include "animator.h"
 #include "projectiles.h"
 #include "convar.h"
+#include "tools.h"
 
 #include <unordered_set>
 

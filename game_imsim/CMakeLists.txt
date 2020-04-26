@@ -1,6 +1,7 @@
 set(SRC
 	stdafx.h
 	common.h
+	tools.h
 	render_queue.h
 	draw_queue.h
 	imsim.h
@@ -10,7 +11,9 @@ set(SRC
 	convar.h
 
 	entry.cpp
-	game_core.cpp
+	# game_core.cpp
+	game.cpp
+	editor.cpp
 )
 
 if(MSVC)

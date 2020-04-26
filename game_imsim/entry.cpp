@@ -14,6 +14,9 @@
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl.h>
+#include "tools.h"
+#include <ctime>
+#include <utils/gl.h>
 
 struct GL_Renderer : public sdl::Renderer {
     SDL_GLContext glctx;
@@ -66,12 +69,35 @@ static void GLMessageCallback
 #endif
 }
 
-Application_Result OnLoad();
-Application_Result OnPreFrame(float flDelta);
-Application_Result OnInput(SDL_Event const& ev);
-Application_Result OnDraw(rq::Render_Queue* pQueue);
-Application_Result OnPostFrame();
-Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight);
+// Application_Result OnLoad();
+// Application_Result OnPreFrame(float flDelta);
+// Application_Result OnInput(SDL_Event const& ev);
+// Application_Result OnDraw(rq::Render_Queue* pQueue);
+// Application_Result OnPostFrame();
+// Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight);
+
+// editor.cpp
+extern IApplication* OpenEditor(Common_Data* pCommon);
+// game_core.cpp
+extern IApplication* StartGame(Common_Data* pCommon);
+
+static Common_Data* gpCommonData = NULL;
+static IApplication* gpApp = NULL;
+
+static IApplication* StartApplication(Application_Kind kKind) {
+    IApplication* ret = NULL;
+
+    switch (kKind) {
+    case k_nApplication_Kind_Game:
+        ret = StartGame(gpCommonData);
+        break;
+    case k_nApplication_Kind_Editor:
+        ret = OpenEditor(gpCommonData);
+        break;
+    }
+
+    return ret;
+}
 
 static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq) {
     using namespace rq;
@@ -129,7 +155,8 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
                 matProjInv *
                 lm::Scale(cmd.move_camera.flZoom) *
                 lm::Translation(lm::Vector4(p[0], p[1], p[2]));
-            OnProjectionMatrixUpdated(matVP, matInvVP, r.width, r.height);
+            // OnProjectionMatrixUpdated(matVP, matInvVP, r.width, r.height);
+            gpApp->OnProjectionMatrixUpdated(matVP, matInvVP, r.width, r.height);
             Projectiles_SetVP(matVP);
             break;
         }
@@ -170,6 +197,55 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
             break;
         }
         }
+    }
+}
+
+static bool LoadEngineData() {
+    assert(gpCommonData == NULL);
+    srand(time(NULL));
+
+    gpCommonData = new Common_Data;
+
+    // Shaders
+
+    auto hGeneric = BuildShader("shaders/generic.vert", "shaders/generic.frag");
+    auto hDebugRed = BuildShader("shaders/debug_red.vert", "shaders/debug_red.frag");
+    auto hRect = BuildShader("shaders/rect.vert", "shaders/rect.frag");
+
+    if (!(hGeneric && hDebugRed && hRect)) {
+        fprintf(stderr, "Failed to load and compile one or more of the required shaders!\n");
+        return false;
+    }
+
+    gpCommonData->hShaderGeneric = hGeneric;
+    gpCommonData->hShaderDebugRed = hDebugRed;
+    gpCommonData->hShaderRect = hRect;
+
+    // Quad
+
+    float const aflQuad[] = {
+        -0.5, -0.5, 0.0,    0.0, 1.0,
+        0.5, -0.5, 0.0,     1.0, 1.0,
+        -0.5, 0.5, 0.0,     0.0, 0.0,
+        0.5, 0.5, 0.0,      1.0, 0.0,
+    };
+
+    gl::Bind(gpCommonData->hVAO);
+    gl::UploadArray(gpCommonData->hVBO, sizeof(aflQuad), aflQuad);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    return true;
+}
+
+static void FreeEngineData() {
+    if (gpCommonData != NULL) {
+        FreeShader(gpCommonData->hShaderRect);
+        FreeShader(gpCommonData->hShaderDebugRed);
+        FreeShader(gpCommonData->hShaderGeneric);
+        delete gpCommonData;
     }
 }
 
@@ -215,10 +291,15 @@ int main(int argc, char** argv) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+        LoadEngineData();
+
         Projectiles_Init();
 
+        gpApp = StartApplication(k_nApplication_Kind_Game);
+
         // Init game
-        res = OnLoad();
+        // res = OnLoad();
+        res = gpApp->OnLoad();
         CHECK_QUIT();
 
         while (!bExit) {
@@ -237,29 +318,19 @@ int main(int argc, char** argv) {
                 case SDL_KEYDOWN:
                 {
                     if (!bImGuiInterceptKbd) {
-                        res = OnInput(ev);
+                        // res = OnInput(ev);
+                        res = gpApp->OnInput(ev);
                         CHECK_QUIT();
                     }
-                    // WORKAROUND(danielm): mod keys trigger an assertion in imgui
-                    /*
-                    if (ev.key.keysym.mod != 0) {
-                        bPassEventToImGui = false;
-                    }
-                    */
                     break;
                 }
                 case SDL_KEYUP:
                 {
                     if (!bImGuiInterceptKbd) {
-                        res = OnInput(ev);
+                        // res = OnInput(ev);
+                        res = gpApp->OnInput(ev);
                         CHECK_QUIT();
                     }
-                    // WORKAROUND(danielm): mod keys trigger an assertion in imgui
-                    /*
-                    if (ev.key.keysym.mod != 0) {
-                        bPassEventToImGui = false;
-                    }
-                    */
                     break;
                 }
                 case SDL_MOUSEBUTTONDOWN:
@@ -268,7 +339,8 @@ int main(int argc, char** argv) {
                 case SDL_MOUSEWHEEL:
                 {
                     if (!bImGuiInterceptMouse) {
-                        res = OnInput(ev);
+                        // res = OnInput(ev);
+                        res = gpApp->OnInput(ev);
                         CHECK_QUIT();
                     }
                     break;
@@ -286,7 +358,8 @@ int main(int argc, char** argv) {
 
             auto uiTimeBeforePreFrame = SDL_GetPerformanceCounter();
             flDelta = (uiTimeBeforePreFrame - uiTimeAfterPreFrame) / (double)SDL_GetPerformanceFrequency();
-            res = OnPreFrame(flDelta);
+            // res = OnPreFrame(flDelta);
+            res = gpApp->OnPreFrame(flDelta);
             uiTimeAfterPreFrame = SDL_GetPerformanceCounter();
             CHECK_QUIT();
 
@@ -295,7 +368,8 @@ int main(int argc, char** argv) {
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            res = OnDraw(&rq);
+            // res = OnDraw(&rq);
+            res = gpApp->OnDraw(&rq);
             CHECK_QUIT();
 
             ImGui::Render();
@@ -304,7 +378,8 @@ int main(int argc, char** argv) {
             Projectiles_Draw();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-            res = OnPostFrame();
+            // res = OnPostFrame();
+            res = gpApp->OnPostFrame();
             CHECK_QUIT();
 
             auto uiTimeBeforePresent = SDL_GetPerformanceCounter();
@@ -320,6 +395,11 @@ int main(int argc, char** argv) {
         }
 
         Projectiles_Cleanup();
+
+        res = gpApp->Release();
+        CHECK_QUIT();
+
+        delete gpCommonData;
 
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplSDL2_Shutdown();
