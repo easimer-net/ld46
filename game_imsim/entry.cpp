@@ -10,6 +10,7 @@
 #include "shaders.h"
 #include "projectiles.h"
 #include "convar.h"
+#include "textures.h"
 
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
@@ -101,69 +102,35 @@ static IApplication* StartApplication(Application_Kind kKind) {
 
 static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq) {
     using namespace rq;
-    Shader_Program hCurrentProgram = NULL;
 
-    lm::Matrix4 matProj, matProjInv, matVP, matMVP;
-    //lm::Perspective(matProj, matProjInv, r.width, r.height, 1.57079633f, 0.1, 1000.0);
-    float const flAspect = r.height / (float)r.width;
-    matProj = lm::Scale(flAspect, 1, 1); // ortho
-    matProjInv = lm::Scale(1 / flAspect, 1, 1);
-
-    matVP = matProj;
-
-    for (auto const& cmd : rq) {
-        switch (cmd.kind) {
-        case k_unRCBindTexture:
-        {
-            BindSprite(cmd.bind_texture.sprite);
-            break;
+    class Render_Command_Executor {
+    public:
+        Render_Command_Executor(GL_Renderer const& r)
+            : flWidth(r.width), flHeight(r.height), flAspect(flWidth / flHeight) {
+            matProj = lm::Scale(flAspect, 1, 1); // ortho
+            matProjInv = lm::Scale(1 / flAspect, 1, 1);
+            matVP = matProj;
         }
-        case k_unRCDrawTriangleStrip:
-        {
-            auto const& ts = cmd.draw_triangle_strip;
+
+        void operator()(rq::Bind_Texture_Params const& param) {
+            BindSprite(param.sprite);
+        }
+
+        void operator()(rq::Change_Program_Params const& param) {
+            UseShader(param.program);
+            hCurrentProgram = param.program;
+        }
+
+        void operator()(rq::Draw_Triangle_Strip_Params const& ts) {
             auto vPos = lm::Vector4(ts.x, ts.y, 0);
             matMVP = lm::Scale(ts.width, ts.height, 1) * lm::Translation(vPos) * matVP;
             SetShaderMVP(hCurrentProgram, matMVP);
-            glBindVertexArray(cmd.draw_triangle_strip.vao);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, cmd.draw_triangle_strip.count);
-            break;
+            glBindVertexArray(ts.vao);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, ts.count);
         }
-        case k_unRCChangeProgram:
-        {
-            UseShader(cmd.change_program.program);
-            hCurrentProgram = cmd.change_program.program;
-            break;
-        }
-        case k_unRCPushDebugNote:
-        {
-            glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, cmd.note.msg);
-            break;
-        }
-        case k_unRCPopDebugNote:
-        {
-            glPopDebugGroup();
-            break;
-        }
-        case k_unRCMoveCamera:
-        {
-            auto p = cmd.move_camera.position;
-            matVP = 
-                lm::Translation(lm::Vector4(-p[0], -p[1], -p[2])) *
-                lm::Scale(1 / cmd.move_camera.flZoom) *
-                matProj;
-            auto const matInvVP =
-                matProjInv *
-                lm::Scale(cmd.move_camera.flZoom) *
-                lm::Translation(lm::Vector4(p[0], p[1], p[2]));
-            // OnProjectionMatrixUpdated(matVP, matInvVP, r.width, r.height);
-            gpApp->OnProjectionMatrixUpdated(matVP, matInvVP, r.width, r.height);
-            Projectiles_SetVP(matVP);
-            break;
-        }
-        case k_unRCDrawLine:
-        {
+
+        void operator()(rq::Draw_Line_Params const& dl) {
             GLuint uiBuf, uiArr;
-            auto& dl = cmd.draw_line;
             float const aflBuf[] = {
                 dl.x0, dl.y0, dl.x1, dl.y1,
             };
@@ -178,25 +145,51 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
             glDrawArrays(GL_LINES, 0, 2);
             glDeleteVertexArrays(1, &uiArr);
             glDeleteBuffers(1, &uiBuf);
-            break;
         }
-        case k_unRCDrawRect:
-        {
-            auto const& ts = cmd.draw_rect;
-            auto vPos = lm::Vector4(ts.x0, ts.y0, 0);
-            matMVP = lm::Scale(ts.sx, ts.sy, 1) * lm::Translation(vPos) * matVP;
-            auto const vColor = lm::Vector4(ts.r, ts.g, ts.b, ts.a);
+
+        void operator()(rq::Debug_Note_Push_Params const& param) {
+            glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, param.msg);
+        }
+
+        void operator()(rq::Debug_Note_Pop_Params const& param) {
+            glPopDebugGroup();
+        }
+
+        void operator()(rq::Move_Camera_Params const& param) {
+            auto p = param.position;
+            matVP = 
+                lm::Translation(lm::Vector4(-p[0], -p[1], -p[2])) *
+                lm::Scale(1 / param.flZoom) *
+                matProj;
+            auto const matInvVP =
+                matProjInv *
+                lm::Scale(param.flZoom) *
+                lm::Translation(lm::Vector4(p[0], p[1], p[2]));
+
+            gpApp->OnProjectionMatrixUpdated(matVP, matInvVP, flWidth, flHeight);
+            Projectiles_SetVP(matVP);
+        }
+
+        void operator()(rq::Draw_Rect_Params const& param) {
+            auto vPos = lm::Vector4(param.x0, param.y0, 0);
+            matMVP = lm::Scale(param.sx, param.sy, 1) * lm::Translation(vPos) * matVP;
+            auto const vColor = lm::Vector4(param.r, param.g, param.b, param.a);
             SetShaderMVP(hCurrentProgram, matMVP);
             SetShaderVertexColor(hCurrentProgram, vColor);
-            glBindVertexArray(ts.vao);
+            glBindVertexArray(param.vao);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-            break;
         }
-        default:
-        {
-            break;
-        }
-        }
+
+        void operator()(std::monostate const&) {}
+    private:
+        Shader_Program hCurrentProgram = NULL;
+        lm::Matrix4 matProj, matProjInv, matVP, matMVP;
+        float const flWidth, flHeight;
+        float const flAspect;
+    } exec(r);
+
+    for (auto const& cmd : rq) {
+        std::visit(Render_Command_Executor(r), cmd);
     }
 }
 
@@ -295,6 +288,7 @@ int main(int argc, char** argv) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+        Sprite2_Init();
         LoadEngineData();
 
         Projectiles_Init();
@@ -412,12 +406,13 @@ int main(int argc, char** argv) {
             }
         }
 
-        Projectiles_Cleanup();
-
         res = gpApp->Release();
         CHECK_RESULT();
 
         delete gpCommonData;
+
+        Projectiles_Cleanup();
+        Sprite2_Shutdown();
 
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplSDL2_Shutdown();

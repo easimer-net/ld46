@@ -7,6 +7,7 @@
 
 #include "textures.h"
 #include <utils/linear_math.h>
+#include <variant>
 
 namespace dq {
     enum Draw_Command_Kind {
@@ -18,30 +19,34 @@ namespace dq {
     };
 
     struct Draw_World_Thing_Params {
-        Sprite hSprite;
+        Draw_Command_Kind kind;
+
+        Shared_Sprite hSprite;
         float x, y;
         float width, height;
     };
 
     struct Draw_Line_Params {
+        Draw_Command_Kind kind;
+
         float x0, y0;
         float x1, y1;
     };
 
     struct Draw_Rect_Params {
+        Draw_Command_Kind kind;
+
         float x0, y0;
         float x1, y1;
         float r, g, b, a;
     };
 
-    struct Draw_Command {
-        Draw_Command_Kind kind;
-        union {
-            Draw_World_Thing_Params draw_world_thing;
-            Draw_Line_Params draw_line;
-            Draw_Rect_Params draw_rect;
-        };
-    };
+    using Draw_Command = std::variant<
+        Draw_World_Thing_Params,
+        Draw_Line_Params,
+        Draw_Rect_Params,
+        std::monostate
+    >;
 
     class Draw_Queue {
     public:

@@ -8,7 +8,7 @@
 #include <unordered_map>
 
 struct Frames {
-    Sprite ahSprites[10];
+    Shared_Sprite ahSprites[10];
     unsigned uiEndFrame = 0;
 };
 
@@ -25,19 +25,6 @@ Animation_Collection CreateAnimator() {
 }
 
 void FreeAnimator(Animation_Collection hAnimator) {
-    for (auto& anim : hAnimator->animations) {
-        for (int i = 0; i < 4; i++) {
-            auto& frames = anim.second.aFrames[i];
-            for (int iFrame = 0; iFrame < 10; iFrame++) {
-                if (frames.ahSprites[iFrame] != NULL) {
-                    auto hSprite = frames.ahSprites[iFrame];
-                    UnpinSprite(hSprite);
-                    FreeSprite(hSprite);
-                }
-            }
-        }
-    }
-
     delete hAnimator;
 }
 
@@ -49,10 +36,9 @@ void LoadAnimationFrame(
     assert(iFrame < 10);
     assert(kDir < k_unDir_Max);
 
-    auto hSprite = LoadSprite(pszPath);
+    auto hSprite = Shared_Sprite(pszPath);
 
     if (hSprite != NULL) {
-        PinSprite(hSprite);
         auto& anims = hColl->animations;
         if (!anims.count(iAnim)) {
             anims[iAnim] = {};
@@ -63,11 +49,11 @@ void LoadAnimationFrame(
         if (frames.uiEndFrame <= iFrame) {
             frames.uiEndFrame = iFrame + 1;
         }
-        frames.ahSprites[iFrame] = hSprite;
+        frames.ahSprites[iFrame] = std::move(hSprite);
     }
 }
 
-Sprite GetAnimationFrame(
+Shared_Sprite GetAnimationFrame(
     Animation_Collection hColl,
     char iAnim, Sprite_Direction kDir,
     unsigned iFrame, bool* pbLooped) {

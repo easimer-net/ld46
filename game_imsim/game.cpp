@@ -259,8 +259,8 @@ public:
         auto& game_data = m_pCommon->aGameData;
         if (id < game_data.entities.size()) {
             auto& ent = game_data.entities[id];
-            if (ent.hSprite != NULL) {
-                FreeSprite(ent.hSprite);
+            if (ent.hSprite) {
+                ent.hSprite.Reset();
             }
             ent.bUsed = false;
 
@@ -277,7 +277,7 @@ public:
         auto const ret = AllocateEntity();
 
         game_data.entities[ret].size = lm::Vector4(1, 1, 1);
-        game_data.entities[ret].hSprite = LoadSprite("data/error.png");
+        game_data.entities[ret].hSprite = Shared_Sprite("data/error.png");
 
         game_data.living[ret] = {
             PLAYER_MAX_HEALTH,
@@ -319,12 +319,11 @@ public:
 
     // Draws a debug line
     void DbgLine(float x0, float y0, float x1, float y1) {
-        dq::Draw_Command dct;
-        dct.draw_line.x0 = x0;
-        dct.draw_line.y0 = y0;
-        dct.draw_line.x1 = x1;
-        dct.draw_line.y1 = y1;
-        dct.kind = dq::k_unDCDrawLine;
+        dq::Draw_Line_Params dct;
+        dct.x0 = x0;
+        dct.y0 = y0;
+        dct.x1 = x1;
+        dct.y1 = y1;
         m_dq.Add(dct);
     }
 
@@ -426,23 +425,21 @@ public:
             }
 
             float const flHpPercent = living.flHealth / living.flMaxHealth;
-            dq::Draw_Command dc;
-            dc.kind = dq::k_unDCDrawRect;
-            auto& r = dc.draw_rect;
+            dq::Draw_Rect_Params r;
             r.r = 0.6f; r.g = 0.0f; r.b = 0.0f;
             r.a = 0.2f;
             r.x0 = ent.position[0];
             r.y0 = ent.position[1] + HPBAR_OFF_Y_TOP;
             r.x1 = ent.position[0] + HPBAR_SIZ_X;
             r.y1 = ent.position[1] + HPBAR_OFF_Y_BOT;
-            dq.Add(dc);
+            dq.Add(r);
             r.r = 0.0f; r.g = 1.0f; r.b = 0.0f;
             r.a = 0.7f;
             r.x0 = ent.position[0];
             r.y0 = ent.position[1] + HPBAR_OFF_Y_TOP;
             r.x1 = ent.position[0] + HPBAR_SIZ_X * flHpPercent;
             r.y1 = ent.position[1] + HPBAR_OFF_Y_BOT;
-            dq.Add(dc);
+            dq.Add(r);
         }
 
         for (auto iLiving : diedEntities) {
@@ -478,14 +475,13 @@ public:
         // Find entities with valid sprite data
 
         for (auto const& ent : aGameData.entities) {
-            if (ent.bUsed && ent.hSprite != NULL) {
-                dq::Draw_Command dc;
-                dc.kind = dq::k_unDCDrawWorldThing;
-                dc.draw_world_thing.x = ent.position[0];
-                dc.draw_world_thing.y = ent.position[1];
-                dc.draw_world_thing.hSprite = ent.hSprite;
-                dc.draw_world_thing.width = ent.size[0];
-                dc.draw_world_thing.height = ent.size[1];
+            if (ent.bUsed && ent.hSprite) {
+                dq::Draw_World_Thing_Params dc;
+                dc.x = ent.position[0];
+                dc.y = ent.position[1];
+                dc.hSprite = ent.hSprite;
+                dc.width = ent.size[0];
+                dc.height = ent.size[1];
                 dq.Add(dc);
             }
         }
@@ -529,13 +525,12 @@ public:
         // Visualize level geometry
         if (Convar_Get("r_visgeo")) {
             for (auto const& g : m_pCommon->aLevelGeometry) {
-                dq::Draw_Command dc;
-                dc.kind = dq::k_unDCDrawRect;
-                dc.draw_rect.x0 = g.min[0];
-                dc.draw_rect.y0 = g.min[1];
-                dc.draw_rect.x1 = g.max[0];
-                dc.draw_rect.y1 = g.max[1];
-                dc.draw_rect.r = dc.draw_rect.g = dc.draw_rect.b = dc.draw_rect.a = 1.0f;
+                dq::Draw_Rect_Params dc;
+                dc.x0 = g.min[0];
+                dc.y0 = g.min[1];
+                dc.x1 = g.max[0];
+                dc.y1 = g.max[1];
+                dc.r = dc.g = dc.b = dc.a = 1.0f;
                 dq.Add(dc);
             }
         }

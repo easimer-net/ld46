@@ -24,7 +24,7 @@ struct Entity {
     lm::Vector4 position, size;
     float flRotation;
 
-    Sprite hSprite;
+    Shared_Sprite hSprite;
 };
 
 struct Living {

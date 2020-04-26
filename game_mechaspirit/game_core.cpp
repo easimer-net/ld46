@@ -276,8 +276,8 @@ static void DeleteEntity(Entity_ID id) {
     auto& game_data = gpAppData->game_data;
     if (id < game_data.entities.size()) {
         auto& ent = game_data.entities[id];
-        if (ent.hSprite != NULL) {
-            FreeSprite(ent.hSprite);
+        if (ent.hSprite) {
+            ent.hSprite.Reset();
         }
         ent.bUsed = false;
 
@@ -377,7 +377,7 @@ static void SpawnRailgunner() {
     auto bb = SPAWN_ARENA_MAX - SPAWN_ARENA_MIN;
     ent.position = SPAWN_ARENA_MIN + lm::Vector4(randf() * bb[0], randf() * bb[1]);
     ent.size = lm::Vector4(2, 2, 1);
-    ent.hSprite = LoadSprite("data/lmecha.png");
+    ent.hSprite = Shared_Sprite("data/lmecha.png");
     game_data.railgunners[id] = {};
     game_data.living[id] = { RAILGUNNER_MAX_HEALTH, RAILGUNNER_MAX_HEALTH };
     game_data.possessables[id] = { 

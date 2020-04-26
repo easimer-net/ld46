@@ -40,7 +40,8 @@ public:
     Level_Editor(Common_Data* pCommon)
         : m_pCommon(pCommon),
         m_pszFilename{0},
-        m_unCameraMoveDir(0)
+        m_unCameraMoveDir(0),
+        m_bShowGeoLayer(false)
     {}
 
     virtual Application_Result Release() override {
@@ -55,20 +56,23 @@ public:
     virtual Application_Result OnPreFrame(float flDelta) override {
         auto& dq = m_dq;
 
-        for (auto const& g : m_pCommon->aLevelGeometry) {
-            dq::Draw_Command dc;
-            dc.kind = dq::k_unDCDrawRect;
-            dc.draw_rect.x0 = g.min[0];
-            dc.draw_rect.y0 = g.min[1];
-            dc.draw_rect.x1 = g.max[0];
-            dc.draw_rect.y1 = g.max[1];
-            dc.draw_rect.r = dc.draw_rect.g = dc.draw_rect.b = dc.draw_rect.a = 1.0f;
-            dq.Add(dc);
-        }
+        assert(!m_geoCreate || (m_geoCreate && m_bShowGeoLayer));
 
-        if (m_geoCreate) {
-            for (auto i = 1; i < m_geoCreate->uiStep; i++) {
-                DbgLine(m_geoCreate->avPoints[i], m_geoCreate->avPoints[(i + 1) % 4]);
+        if (m_bShowGeoLayer) {
+            for (auto const& g : m_pCommon->aLevelGeometry) {
+                dq::Draw_Rect_Params dc;
+                dc.x0 = g.min[0];
+                dc.y0 = g.min[1];
+                dc.x1 = g.max[0];
+                dc.y1 = g.max[1];
+                dc.r = dc.g = dc.b = dc.a = 1.0f;
+                dq.Add(dc);
+            }
+
+            if (m_geoCreate) {
+                for (auto i = 1; i < m_geoCreate->uiStep; i++) {
+                    DbgLine(m_geoCreate->avPoints[i], m_geoCreate->avPoints[(i + 1) % 2]);
+                }
             }
         }
 
@@ -87,9 +91,14 @@ public:
 
         // Entity menu
         if (ImGui::Begin("Entity")) {
-            if (ImGui::Button("Begin Geo")) {
-                m_geoCreate = Level_Geometry_Creation_State();
-                printf("geo create state enabled\n");
+            ImGui::Checkbox("Edit level geometry", &m_bShowGeoLayer);
+            if(m_bShowGeoLayer) {
+                if (ImGui::Button("Create")) {
+                    m_geoCreate = Level_Geometry_Creation_State();
+                }
+                ImGui::Separator();
+            }
+            if (ImGui::Button("Prop")) {
             }
         }
         ImGui::End();
@@ -180,12 +189,11 @@ public:
 
     // Draws a debug line
     void DbgLine(float x0, float y0, float x1, float y1) {
-        dq::Draw_Command dct;
-        dct.draw_line.x0 = x0;
-        dct.draw_line.y0 = y0;
-        dct.draw_line.x1 = x1;
-        dct.draw_line.y1 = y1;
-        dct.kind = dq::k_unDCDrawLine;
+        dq::Draw_Line_Params dct;
+        dct.x0 = x0;
+        dct.y0 = y0;
+        dct.x1 = x1;
+        dct.y1 = y1;
         m_dq.Add(dct);
     }
 
@@ -206,6 +214,65 @@ public:
         m_geoCreate.reset();
     }
 
+    // Creates a new empty entity and places it into aInitialGameData
+    Entity_ID AllocateEntity() {
+        Entity_ID ret;
+        auto& game_data = m_pCommon->aInitialGameData;
+        std::optional<Entity_ID> reusable;
+
+        for (Entity_ID i = 0; i < game_data.entities.size() && !reusable.has_value(); i++) {
+            auto& slot = game_data.entities[i];
+            if (!slot.bUsed) {
+                reusable = i;
+            }
+        }
+
+        if (reusable.has_value()) {
+            ret = reusable.value();
+            auto& ent = game_data.entities[ret];
+            ent = {}; // reset state
+            ent.bUsed = true;
+        } else {
+            ret = game_data.entities.size();
+            game_data.entities.push_back({ true });
+        }
+
+        printf("Entity #%llu allocated (INITIAL)\n", ret);
+
+        return ret;
+    }
+
+    void CreateEmptyProp() {
+        auto& game_data = m_pCommon->aInitialGameData;
+        // Place at camera
+        auto pos = m_pCommon->vCameraPosition;
+        auto iEnt = AllocateEntity();
+        auto& ent = game_data.entities[iEnt];
+        ent.size = lm::Vector4(1, 1);
+        ent.position = pos;
+        ent.hSprite = Shared_Sprite("data/empty.png");
+
+        auto& prop = (game_data.static_props[iEnt] = {});
+        strcpy(prop.pszSpritePath, "data/empty.png");
+    }
+
+    // Delete an entity from aInitialGameData
+    void DeleteEntity(Entity_ID id) {
+        auto& game_data = m_pCommon->aInitialGameData;
+        if (id < game_data.entities.size()) {
+            auto& ent = game_data.entities[id];
+            if (ent.hSprite) {
+                ent.hSprite.Reset();
+            }
+            ent.bUsed = false;
+
+            game_data.living.erase(id);
+            game_data.corpses.erase(id);
+            game_data.players.erase(id);
+            game_data.animated.erase(id);
+        }
+    }
+
 private:
     Common_Data* m_pCommon;
 
@@ -214,6 +281,7 @@ private:
 
     char m_pszFilename[FILENAME_MAX_SIZ];
 
+    bool m_bShowGeoLayer;
     Optional<Level_Geometry_Creation_State> m_geoCreate;
 };
 

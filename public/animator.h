@@ -25,7 +25,7 @@ void LoadAnimationFrame(
     char iAnim, Sprite_Direction kDir,
     unsigned iFrame, char const* pszPath);
 
-Sprite GetAnimationFrame(
+Shared_Sprite GetAnimationFrame(
     Animation_Collection hColl,
     char iAnim, Sprite_Direction kDir,
     unsigned iFrame, bool* bpLooped = NULL);
