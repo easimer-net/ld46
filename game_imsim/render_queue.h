@@ -13,6 +13,23 @@
 #include "textures.h"
 #include "shaders.h"
 
+#ifdef _DEBUG
+#define RQ_DEBUG_NOTE char const* pszFunction; unsigned uiLine;
+#else
+#define RQ_DEBUG_NOTE
+#endif
+
+#ifdef _DEBUG
+#define RQ_GET_ANNOTATE(cmd) cmd.pszFunction
+#define RQ_GET_LINE(cmd) cmd.uiLine
+#define RQ_ANNOTATE(cmd, s) cmd.pszFunction = s
+#define RQ_COPY_ANNOTATION(dst, src) dst.pszFunction = src.pszFunction; dst.uiLine = src.uiLine;
+#define RQ_ANNOTATE2(cmd) cmd.pszFunction = __func__
+#else
+#define RQ_ANNOTATE(x, y)
+#define RQ_ANNOTATE2(x, y)
+#endif
+
 namespace rq {
     enum Render_Command_Kind : uint32_t {
         k_unRCInvalid = 0,
@@ -31,11 +48,8 @@ namespace rq {
 
     class Render_Queue;
 
-    struct Render_Sub_Queue_Params {
-        Render_Queue* queue;
-    };
-
     struct Draw_Triangle_Strip_Params {
+        RQ_DEBUG_NOTE;
         GLuint vao;
         size_t count;
         float x, y;
@@ -43,30 +57,38 @@ namespace rq {
     };
 
     struct Change_Program_Params {
+        RQ_DEBUG_NOTE;
         // gl::Weak_Resource_Reference<gl::Shader_Program> program;
         Shader_Program program;
     };
 
     struct Draw_Line_Params {
+        RQ_DEBUG_NOTE;
         float x0, y0, x1, y1;
     };
 
     struct Debug_Note_Push_Params {
+        RQ_DEBUG_NOTE;
         char msg[64];
     };
 
-    struct Debug_Note_Pop_Params {};
+    struct Debug_Note_Pop_Params {
+        RQ_DEBUG_NOTE;
+    };
 
     struct Bind_Texture_Params {
+        RQ_DEBUG_NOTE;
         Shared_Sprite sprite;
     };
 
     struct Move_Camera_Params {
+        RQ_DEBUG_NOTE;
         float position[2];
         float flZoom;
     };
 
     struct Draw_Rect_Params {
+        RQ_DEBUG_NOTE;
         GLuint vao;
         float x0, y0;
         float sx, sy;
@@ -75,7 +97,6 @@ namespace rq {
 
     using Render_Command = std::variant<
         Change_Program_Params,
-        Render_Sub_Queue_Params,
         Debug_Note_Push_Params,
         Debug_Note_Pop_Params,
         Bind_Texture_Params,
@@ -106,11 +127,4 @@ namespace rq {
     private:
         std::vector<Render_Command> buffer;
     };
-
-    // Make a Change_Program_Params in a type-safe manner
-    inline Change_Program_Params MakeChangeProgramParams(
-        Shader_Program program
-    ) {
-        return { program };
-    }
 }

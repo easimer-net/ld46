@@ -66,6 +66,7 @@ public:
                 dc.x1 = g.max[0];
                 dc.y1 = g.max[1];
                 dc.r = dc.g = dc.b = dc.a = 1.0f;
+                DQ_ANNOTATE(dc);
                 dq.Add(dc);
             }
 
@@ -194,6 +195,7 @@ public:
         dct.y0 = y0;
         dct.x1 = x1;
         dct.y1 = y1;
+        DQ_ANNOTATE(dct);
         m_dq.Add(dct);
     }
 

@@ -9,6 +9,29 @@
 #include <utils/linear_math.h>
 #include <variant>
 
+#ifdef _DEBUG
+#define DQ_DEBUG_NOTE char const* pszFunction; unsigned uiLine;
+#else
+#define DQ_DEBUG_NOTE
+#endif
+
+#ifdef _DEBUG
+#if defined(_MSC_VER)
+#define DQ_FUNC_NAME() __FUNCSIG__
+#elif defined(__GNUC__) || defined(__clang__)
+#define DQ_FUNC_NAME() __PRETTY_FUNCTION__
+#else
+#if __cplusplus <= 199711L
+#define DQ_FUNC_NAME() __FUNCTION__
+#else
+#define DQ_FUNC_NAME() __func__
+#endif
+#endif
+#define DQ_ANNOTATE(cmd) cmd.pszFunction = DQ_FUNC_NAME(); cmd.uiLine = __LINE__;
+#else
+#define DQ_ANNOTATE(cmd)
+#endif
+
 namespace dq {
     enum Draw_Command_Kind {
         k_unDCInvalid = 0,
@@ -19,7 +42,7 @@ namespace dq {
     };
 
     struct Draw_World_Thing_Params {
-        Draw_Command_Kind kind;
+        DQ_DEBUG_NOTE;
 
         Shared_Sprite hSprite;
         float x, y;
@@ -27,14 +50,14 @@ namespace dq {
     };
 
     struct Draw_Line_Params {
-        Draw_Command_Kind kind;
+        DQ_DEBUG_NOTE;
 
         float x0, y0;
         float x1, y1;
     };
 
     struct Draw_Rect_Params {
-        Draw_Command_Kind kind;
+        DQ_DEBUG_NOTE;
 
         float x0, y0;
         float x1, y1;

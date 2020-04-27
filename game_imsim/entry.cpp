@@ -189,7 +189,7 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
     } exec(r);
 
     for (auto const& cmd : rq) {
-        std::visit(Render_Command_Executor(r), cmd);
+        std::visit(exec, cmd);
     }
 }
 

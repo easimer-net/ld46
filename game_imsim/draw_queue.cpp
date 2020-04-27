@@ -27,11 +27,13 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
     rq::Move_Camera_Params move_cam;
 
     ch_prog.program = pCommon->hShaderGeneric;
+    RQ_ANNOTATE2(ch_prog);
     rq.Add(ch_prog);
 
     move_cam.position[0] = pCommon->vCameraPosition[0];
     move_cam.position[1] = pCommon->vCameraPosition[1];
     move_cam.flZoom = pCommon->flCameraZoom;
+    RQ_ANNOTATE2(move_cam);
     rq.Add(move_cam);
 
     for (auto const& cmd : dq) {
@@ -41,6 +43,7 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
                 rq::Draw_Triangle_Strip_Params draw_tri;
                 // Change tex
                 bind_tex.sprite = param.hSprite;
+                RQ_COPY_ANNOTATION(bind_tex, param);
                 rq.Add(bind_tex);
 
                 draw_tri.count = 4;
@@ -49,6 +52,7 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
                 draw_tri.y = param.y;
                 draw_tri.width = param.width;
                 draw_tri.height = param.height;
+                RQ_COPY_ANNOTATION(draw_tri, param);
                 rq.Add(draw_tri);
 
             },
@@ -57,6 +61,7 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
     }
 
     ch_prog.program = pCommon->hShaderDebugRed;
+    RQ_ANNOTATE2(ch_prog);
     rq.Add(ch_prog);
 
     for (auto const& cmd : dq) {
@@ -67,6 +72,7 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
                 draw_line.y0 = param.y0;
                 draw_line.x1 = param.x1;
                 draw_line.y1 = param.y1;
+                RQ_COPY_ANNOTATION(draw_line, param);
                 rq.Add(draw_line);
             },
             [](auto&&) {}
@@ -74,6 +80,7 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
     }
 
     ch_prog.program = pCommon->hShaderRect;
+    RQ_ANNOTATE2(ch_prog);
     rq.Add(ch_prog);
 
     for (auto const& cmd : dq) {
@@ -89,6 +96,7 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
                 draw_rect.x0 = param.x0 + draw_rect.sx * 0.5f;
                 draw_rect.y0 = param.y0 + draw_rect.sy * 0.5f;
                 draw_rect.vao = pCommon->hVAO;
+                RQ_COPY_ANNOTATION(draw_rect, param);
                 rq.Add(draw_rect);
             },
             [](auto&&) {}

@@ -324,6 +324,7 @@ public:
         dct.y0 = y0;
         dct.x1 = x1;
         dct.y1 = y1;
+        DQ_ANNOTATE(dct);
         m_dq.Add(dct);
     }
 
@@ -432,6 +433,7 @@ public:
             r.y0 = ent.position[1] + HPBAR_OFF_Y_TOP;
             r.x1 = ent.position[0] + HPBAR_SIZ_X;
             r.y1 = ent.position[1] + HPBAR_OFF_Y_BOT;
+            DQ_ANNOTATE(r);
             dq.Add(r);
             r.r = 0.0f; r.g = 1.0f; r.b = 0.0f;
             r.a = 0.7f;
@@ -439,6 +441,7 @@ public:
             r.y0 = ent.position[1] + HPBAR_OFF_Y_TOP;
             r.x1 = ent.position[0] + HPBAR_SIZ_X * flHpPercent;
             r.y1 = ent.position[1] + HPBAR_OFF_Y_BOT;
+            DQ_ANNOTATE(r);
             dq.Add(r);
         }
 
@@ -482,6 +485,7 @@ public:
                 dc.hSprite = ent.hSprite;
                 dc.width = ent.size[0];
                 dc.height = ent.size[1];
+                DQ_ANNOTATE(dc);
                 dq.Add(dc);
             }
         }
@@ -531,6 +535,7 @@ public:
                 dc.x1 = g.max[0];
                 dc.y1 = g.max[1];
                 dc.r = dc.g = dc.b = dc.a = 1.0f;
+                DQ_ANNOTATE(dc);
                 dq.Add(dc);
             }
         }
