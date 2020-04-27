@@ -106,7 +106,7 @@ static void ExecuteRenderQueue(GL_Renderer const& r, rq::Render_Queue const& rq)
     class Render_Command_Executor {
     public:
         Render_Command_Executor(GL_Renderer const& r)
-            : flWidth(r.width), flHeight(r.height), flAspect(flWidth / flHeight) {
+            : flWidth(r.width), flHeight(r.height), flAspect(flHeight / flWidth) {
             matProj = lm::Scale(flAspect, 1, 1); // ortho
             matProjInv = lm::Scale(1 / flAspect, 1, 1);
             matVP = matProj;

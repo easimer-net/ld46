@@ -55,6 +55,15 @@ public:
 
     virtual Application_Result OnPreFrame(float flDelta) override {
         auto& dq = m_dq;
+        auto& gameData = m_pCommon->aInitialGameData;
+
+        auto const vCameraMoveDir =
+            CAMERA_MOVEDIR_GET(CAMERA_MOVEDIR_RIGHT) * lm::Vector4(1.0f, 0.0f) +
+            CAMERA_MOVEDIR_GET(CAMERA_MOVEDIR_UP)    * lm::Vector4(0.0f, 1.0f) +
+            CAMERA_MOVEDIR_GET(CAMERA_MOVEDIR_LEFT)  * lm::Vector4(-1.0f, 0.0f) +
+            CAMERA_MOVEDIR_GET(CAMERA_MOVEDIR_DOWN)  * lm::Vector4(0.0f, -1.0f);
+
+        m_pCommon->vCameraPosition = m_pCommon->vCameraPosition + flDelta * vCameraMoveDir;
 
         assert(!m_geoCreate || (m_geoCreate && m_bShowGeoLayer));
 
@@ -75,6 +84,17 @@ public:
                     DbgLine(m_geoCreate->avPoints[i], m_geoCreate->avPoints[(i + 1) % 2]);
                 }
             }
+        }
+
+        for (auto const& kv : gameData.player_spawns) {
+            dq::Draw_World_Thing_Params dc;
+            auto& ent = gameData.entities[kv.first];
+            dc.x = ent.position[0];
+            dc.y = ent.position[1];
+            dc.width = dc.height = 1;
+            dc.hSprite = Shared_Sprite("data/spawn.png");
+            DQ_ANNOTATE(dc);
+            dq.Add(dc);
         }
 
         // File menu
@@ -101,8 +121,16 @@ public:
             }
             if (ImGui::Button("Prop")) {
             }
+            if (ImGui::Button("Player spawn")) {
+                auto iEnt = AllocateEntity();
+                auto& ent = gameData.entities[iEnt];
+                ent.position = m_pCommon->vCameraPosition;
+                gameData.player_spawns[iEnt] = {};
+            }
         }
         ImGui::End();
+
+        printf("cursor %f\t%f\n", m_pCommon->vCursorWorldPos[0], m_pCommon->vCursorWorldPos[1]);
 
         return k_nApplication_Result_OK;
     }
@@ -183,6 +211,14 @@ public:
     }
 
     virtual Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight) override {
+        // NOTE(danielm): now that we have a Common_Data structured shared between modes and the engine
+        // we no longer need this call as the engine could just put the matrices right in those structures
+
+        m_pCommon->matProj = matProj;
+        m_pCommon->matInvProj = matInvProj;
+        m_pCommon->flScreenWidth = flWidth;
+        m_pCommon->flScreenHeight = flHeight;
+
         return k_nApplication_Result_OK;
     }
 

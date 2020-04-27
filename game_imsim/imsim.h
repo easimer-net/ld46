@@ -26,6 +26,10 @@ struct Entity {
 
     // Sprite hSprite;
     Shared_Sprite hSprite;
+
+    void ResetTransients() {
+        hSprite.Reset();
+    }
 };
 
 struct Living {
@@ -59,6 +63,8 @@ struct Animated_Init {
     char pszAnimDefPath[128];
 };
 
+struct Player_Spawn {};
+
 #define TABLE_COLLECTION()                                                  \
     template<typename T> T* CreateInTable(Entity_ID id);                    \
     template<typename V> using Vector = std::vector<V>;                     \
@@ -66,12 +72,7 @@ struct Animated_Init {
     template<typename V> using E_Map = Map<Entity_ID, V>;
 
 #define ADD_TABLE(name, type)               \
-E_Map<type> name;                           \
-template<>                                  \
-type* CreateInTable<type>(Entity_ID id) {   \
-    name[id] = {};                          \
-    return &name.at(id);                    \
-}
+E_Map<type> name;
 
 struct Game_Data {
     TABLE_COLLECTION();
@@ -84,4 +85,5 @@ struct Game_Data {
     ADD_TABLE(animated, Animated);
     ADD_TABLE(static_props, Static_Prop);
     ADD_TABLE(animated_init, Animated_Init);
+    ADD_TABLE(player_spawns, Player_Spawn);
 };

@@ -51,7 +51,9 @@ public:
     Shared_Sprite(char const* pszPath) : m_hSprite(CreateSprite(pszPath)) {}
 
     Shared_Sprite(Shared_Sprite const& other) : m_hSprite(other.m_hSprite) {
-        AddRef(m_hSprite);
+        if (m_hSprite != NULL) {
+            AddRef(m_hSprite);
+        }
     }
 
     Shared_Sprite(Shared_Sprite&& other) noexcept : m_hSprite(NULL) {
@@ -63,7 +65,9 @@ public:
             Release(m_hSprite);
         }
         m_hSprite = other.m_hSprite;
-        AddRef(m_hSprite);
+        if (m_hSprite != NULL) {
+            AddRef(m_hSprite);
+        }
         return *this;
     }
 

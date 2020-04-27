@@ -123,6 +123,11 @@ public:
         m_pszConBuf{0}
     {
         m_pCommon->aGameData = m_pCommon->aInitialGameData;
+
+        for (auto& ent : m_pCommon->aGameData.entities) {
+            ent.ResetTransients();
+        }
+
         CreatePlayer();
     }
 
@@ -272,29 +277,40 @@ public:
     }
 
     // Create a player entity
-    Entity_ID CreatePlayer() {
+    void CreatePlayer() {
         auto& game_data = m_pCommon->aGameData;
-        auto const ret = AllocateEntity();
 
-        game_data.entities[ret].size = lm::Vector4(1, 1, 1);
-        game_data.entities[ret].hSprite = Shared_Sprite("data/error.png");
+        // Spawn players at spawn points
+        Set<Entity_ID> spawners;
+        for (auto& spawn : game_data.player_spawns) {
+            spawners.insert(spawn.first);
 
-        game_data.living[ret] = {
-            PLAYER_MAX_HEALTH,
-            PLAYER_MAX_HEALTH,
-        };
+            auto const ret = AllocateEntity();
 
-        game_data.players[ret] = {};
-        /*
-        game_data.animated[ret] = {
-            m_hAnimPlayer,
-            'i',
-            NULL,
-            0, 0.0f,
-        };
-        */
+            game_data.entities[ret].size = lm::Vector4(1, 1, 1);
+            game_data.entities[ret].hSprite = Shared_Sprite("data/ranged_idle_se_001.png");
 
-        return ret;
+            game_data.living[ret] = {
+                PLAYER_MAX_HEALTH,
+                PLAYER_MAX_HEALTH,
+            };
+
+            game_data.players[ret] = {};
+            /*
+            game_data.animated[ret] = {
+                m_hAnimPlayer,
+                'i',
+                NULL,
+                0, 0.0f,
+            };
+            */
+        }
+
+        // Then remove spawners
+        // NOTE(danielm): in a multiplayer game you wouldn't do this
+        for (auto ent : spawners) {
+            DeleteEntity(ent);
+        }
     }
 
     // Randomly spawn an entity
@@ -505,6 +521,8 @@ public:
 
                 m_pszConBuf[0] = 0;
             }
+
+            ImGui::Text("Help:\nui_entdbg 0/1\nr_visgeo 0/1\n");
         }
         ImGui::End();
 #endif

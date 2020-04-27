@@ -144,6 +144,7 @@ Sprite2 CreateSprite(char const* pszPath) {
 
         if (pData != NULL) {
             ret = new Sprite2_;
+            ret->unRefCount = 1;
 
             printf("Sprite2 loaded '%s' %dx%dx%d\n", pszPath, nWidth, nHeight, nChannels);
 
@@ -164,6 +165,8 @@ Sprite2 CreateSprite(char const* pszPath) {
             gl::GenerateMipmaps();
 
             stbi_image_free(pData);
+
+            gpCache->map[pszKey] = ret;
         }
     }
 
