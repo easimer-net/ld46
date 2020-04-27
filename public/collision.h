@@ -45,6 +45,8 @@ struct Collision_Ray {
 using Collision_World = std::vector<Collision_AABB_Entity>;
 using Collision_Result = std::vector<Collision_User_Data>;
 
+// Check collisions between a set of entities and a ray.
+// Returns the list of entities that the ray has hit.
 Collision_Result
 CheckCollisions(Collision_World const& world, Collision_Ray const& ray);
 
@@ -56,6 +58,18 @@ struct Collision_AABB {
 
 using Collision_Level_Geometry = std::vector<Collision_AABB>;
 
+// Check collisions between the world and a set of entities.
+// Returns the list of entities that intersect with the world.
 Collision_Result
 CheckCollisions(Collision_Level_Geometry const& level, Collision_World const& world);
 
+// Checks whether a point intersects with the world geometry.
+// Returns the list of geometries that the point is inside of.
+// TODO(danielm): implement
+std::vector<size_t>
+CheckCollisions(Collision_Level_Geometry const& level, lm::Vector4 const& point);
+
+// Checks whether a point intersects with a set of entities.
+// Returns the list of entities that intersect with this point.
+Collision_Result
+CheckCollisions(Collision_World const& world, lm::Vector4 const& point);

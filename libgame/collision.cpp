@@ -55,3 +55,21 @@ CheckCollisions(Collision_Level_Geometry const& level, Collision_World const& wo
 
     return ret;
 }
+
+Collision_Result
+CheckCollisions(Collision_World const& world, lm::Vector4 const& point) {
+    Collision_Result ret;
+
+    for (auto const& ent : world) {
+        auto bIntersection =
+            ent.min[0] <= point[0] && ent.max[0] >= point[0] &&
+            ent.min[1] <= point[1] && ent.max[1] >= point[1];
+
+        if (bIntersection) {
+            ret.push_back(ent.id);
+        }
+    }
+
+    return ret;
+
+}

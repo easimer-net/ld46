@@ -44,8 +44,9 @@ struct Corpse {
 struct Player {
 };
 
+#define MAX_STATIC_PROP_SPRITE_PATH (128)
 struct Static_Prop {
-    char pszSpritePath[128];
+    char pszSpritePath[MAX_STATIC_PROP_SPRITE_PATH];
 };
 
 struct Animated {

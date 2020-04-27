@@ -129,6 +129,14 @@ public:
         }
 
         CreatePlayer();
+
+        // Static props
+        for (auto const& prop : m_pCommon->aGameData.static_props) {
+            auto& ent = m_pCommon->aGameData.entities[prop.first];
+            auto const& propData = prop.second;
+            ent.hSprite = Shared_Sprite(propData.pszSpritePath);
+            // NOTE(danielm): should we clear this set in release builds?
+        }
     }
 
     virtual Application_Result Release() override {
@@ -279,15 +287,18 @@ public:
     // Create a player entity
     void CreatePlayer() {
         auto& game_data = m_pCommon->aGameData;
+        auto const& init_game_data = m_pCommon->aInitialGameData;
 
         // Spawn players at spawn points
         Set<Entity_ID> spawners;
         for (auto& spawn : game_data.player_spawns) {
             spawners.insert(spawn.first);
+            auto& spawnData = init_game_data.entities[spawn.first];
 
             auto const ret = AllocateEntity();
 
-            game_data.entities[ret].size = lm::Vector4(1, 1, 1);
+            game_data.entities[ret].position = spawnData.position;
+            game_data.entities[ret].size = spawnData.size;
             game_data.entities[ret].hSprite = Shared_Sprite("data/ranged_idle_se_001.png");
 
             game_data.living[ret] = {
@@ -503,6 +514,8 @@ public:
                 dc.height = ent.size[1];
                 DQ_ANNOTATE(dc);
                 dq.Add(dc);
+            } else {
+                int a = 5;
             }
         }
 

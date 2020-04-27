@@ -41,7 +41,8 @@ public:
         : m_pCommon(pCommon),
         m_pszFilename{0},
         m_unCameraMoveDir(0),
-        m_bShowGeoLayer(false)
+        m_bShowGeoLayer(false),
+        m_bShowBoundingBoxes(true)
     {}
 
     virtual Application_Result Release() override {
@@ -97,6 +98,38 @@ public:
             dq.Add(dc);
         }
 
+        for (auto const& ent: gameData.entities) {
+            if (ent.hSprite != NULL) {
+                dq::Draw_World_Thing_Params dc;
+                dc.x = ent.position[0];
+                dc.y = ent.position[1];
+                dc.width = ent.size[0];
+                dc.height = ent.size[1];
+                dc.hSprite = ent.hSprite;
+                DQ_ANNOTATE(dc);
+                dq.Add(dc);
+            }
+        }
+        if (m_bShowBoundingBoxes) {
+            dq::Draw_Rect_Params dc;
+            for (auto const& ent: gameData.entities) {
+                if (ent.bUsed) {
+                    auto const size = CalculateEntityPickerSize(ent.size);
+                    auto const flHalfWidth = size[0] / 2;
+                    auto const flHalfHeight = size[1] / 2;
+                    dc.x0 = ent.position[0] - flHalfWidth;
+                    dc.x1 = ent.position[0] + flHalfWidth;
+                    dc.y0 = ent.position[1] - flHalfHeight;
+                    dc.y1 = ent.position[1] + flHalfHeight;
+                    dc.r = dc.b = 0.0f;
+                    dc.a = 0.20f;
+                    dc.g = 1.0f;
+                    DQ_ANNOTATE(dc);
+                    dq.Add(dc);
+                }
+            }
+        }
+
         // File menu
         if (ImGui::Begin("File")) {
             ImGui::InputText("Name", m_pszFilename, FILENAME_MAX_SIZ);
@@ -112,6 +145,7 @@ public:
 
         // Entity menu
         if (ImGui::Begin("Entity")) {
+            ImGui::Checkbox("Render bounding boxes", &m_bShowBoundingBoxes);
             ImGui::Checkbox("Edit level geometry", &m_bShowGeoLayer);
             if(m_bShowGeoLayer) {
                 if (ImGui::Button("Create")) {
@@ -119,20 +153,92 @@ public:
                 }
                 ImGui::Separator();
             }
-            if (ImGui::Button("Prop")) {
+            ImGui::Text("Templates");
+            if (ImGui::Button("Empty")) {
+                auto iEnt = AllocateEntity();
+                auto& ent = gameData.entities[iEnt];
+                ent.position = m_pCommon->vCameraPosition;
+                ent.size = lm::Vector4(1, 1);
+                ent.hSprite = Shared_Sprite("data/empty.png");
             }
+            ImGui::SameLine();
+            if (ImGui::Button("Prop")) {
+                CreateEmptyProp();
+            }
+            ImGui::SameLine();
             if (ImGui::Button("Player spawn")) {
                 auto iEnt = AllocateEntity();
                 auto& ent = gameData.entities[iEnt];
                 ent.position = m_pCommon->vCameraPosition;
+                ent.size = lm::Vector4(1, 1);
                 gameData.player_spawns[iEnt] = {};
+            }
+
+            if (m_iSelectedEntity) {
+                bool bDelete = false;
+                Entity_ID iEnt = m_iSelectedEntity.value();
+                auto& ent = gameData.entities[iEnt];
+
+                ImGui::Separator();
+                ImGui::Separator();
+                ImGui::Text("Selected entity %u", iEnt);
+                ImGui::Separator();
+                ImGui::Text("Entity");
+                ImGui::SameLine();
+                if (ImGui::Button("Delete")) {
+                    bDelete = true;
+                }
+                ImGui::InputFloat2("Position", ent.position.m_flValues);
+                ImGui::InputFloat2("Size", ent.size.m_flValues);
+                ImGui::InputFloat("Rotation", &ent.flRotation);
+                EditLiving(iEnt);
+                EditStaticProp(iEnt);
+
+                if (bDelete) {
+                    m_iSelectedEntity.reset();
+                    DeleteEntity(iEnt);
+                }
             }
         }
         ImGui::End();
 
-        printf("cursor %f\t%f\n", m_pCommon->vCursorWorldPos[0], m_pCommon->vCursorWorldPos[1]);
-
         return k_nApplication_Result_OK;
+    }
+
+    void EditLiving(Entity_ID iEnt) {
+        auto& set = m_pCommon->aInitialGameData.living;
+        if (set.count(iEnt)) {
+            auto& data = set[iEnt];
+            ImGui::Separator();
+            ImGui::Text("Living");
+            ImGui::InputFloat("Initial health", &data.flHealth);
+            ImGui::InputFloat("Maximum health", &data.flMaxHealth);
+            ImGui::Separator();
+        } else {
+            if (ImGui::Button("Make Living")) {
+                set[iEnt] = {};
+            }
+        }
+    }
+
+    void EditStaticProp(Entity_ID iEnt) {
+        auto& set = m_pCommon->aInitialGameData.static_props;
+        auto& ent = m_pCommon->aInitialGameData.entities[iEnt];
+        if (set.count(iEnt)) {
+            auto& data = set[iEnt];
+            ImGui::Separator();
+            ImGui::Text("Static prop");
+            ImGui::InputText("Sprite path", data.pszSpritePath, MAX_STATIC_PROP_SPRITE_PATH);
+            if (ImGui::Button("Reload sprite")) {
+                ent.hSprite = Shared_Sprite(data.pszSpritePath);
+            }
+            ImGui::RadioButton("Sprite OK", ent.hSprite != NULL);
+            ImGui::Separator();
+        } else {
+            if (ImGui::Button("Make Static_Prop")) {
+                set[iEnt] = {};
+            }
+        }
     }
 
     virtual Application_Result OnInput(SDL_Event const& ev) override {
@@ -194,6 +300,8 @@ public:
                 if (m_geoCreate->Put(m_pCommon->vCursorWorldPos)) {
                     CreateDrawnGeo();
                 }
+            } else {
+                PickEntity();
             }
         }
 
@@ -311,6 +419,58 @@ public:
         }
     }
 
+    // Used when calculating the bounding boxes for entity
+    // picking purposes to make sure that entities have a minimum
+    // size so that they are pickable.
+    // For example certain control entities that are never drawn
+    // wouldn't be pickable due to their infinitesimal size.
+    lm::Vector4 CalculateEntityPickerSize(lm::Vector4 const& size) {
+        lm::Vector4 ret = size;
+
+        auto const lensq = lm::LengthSq(size);
+        if (lensq < 2.0f) {
+            ret = lm::Vector4(1, 1);
+        }
+
+        return ret;
+    }
+
+    void PickEntity() {
+        auto& game_data = m_pCommon->aInitialGameData;
+        Collision_World world;
+        Collision_AABB_Entity bb;
+
+        for(size_t i = 0; i < game_data.entities.size(); i++) {
+            auto const& ent = game_data.entities[i];
+            if (ent.bUsed) {
+                auto const size = CalculateEntityPickerSize(ent.size);
+                auto const flHalfWidth = size[0] / 2;
+                auto const flHalfHeight = size[1] / 2;
+                bb.min = lm::Vector4(ent.position[0] - flHalfWidth, ent.position[1] - flHalfHeight);
+                bb.max = lm::Vector4(ent.position[0] + flHalfWidth, ent.position[1] + flHalfHeight);
+                bb.id = i;
+                world.push_back(bb);
+            }
+        }
+
+        auto res = CheckCollisions(world, m_pCommon->vCursorWorldPos);
+
+        if (res.size() > 0) {
+            if (m_iSelectedEntity) {
+                for (auto const& nRes : res) {
+                    auto const iEnt = (Entity_ID)nRes;
+                    if (m_iSelectedEntity.value() != iEnt) {
+                        m_iSelectedEntity = iEnt;
+                    }
+                }
+            } else {
+                m_iSelectedEntity = res[0];
+            }
+        } else {
+            m_iSelectedEntity.reset();
+        }
+    }
+
 private:
     Common_Data* m_pCommon;
 
@@ -319,8 +479,9 @@ private:
 
     char m_pszFilename[FILENAME_MAX_SIZ];
 
-    bool m_bShowGeoLayer;
+    bool m_bShowGeoLayer, m_bShowBoundingBoxes;
     Optional<Level_Geometry_Creation_State> m_geoCreate;
+    Optional<Entity_ID> m_iSelectedEntity;
 };
 
 IApplication* OpenEditor(Common_Data* pCommon) {
