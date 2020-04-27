@@ -25,6 +25,8 @@ struct Sprite2_ {
 
 #if defined(_DEBUG)
 #define BREAK_DEPRECATED_CALL() assert(!"DEPRECATED FUNCTION CALL")
+#else
+#define BREAK_DEPRECATED_CALL()
 #endif
 
 Sprite LoadSprite(char const* pszPath) {
