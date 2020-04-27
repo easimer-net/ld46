@@ -33,14 +33,6 @@
 #endif
 
 namespace dq {
-    enum Draw_Command_Kind {
-        k_unDCInvalid = 0,
-        k_unDCDrawWorldThing,
-        k_unDCDrawLine,
-        k_unDCDrawRect,
-        k_unDCMax
-    };
-
     struct Draw_World_Thing_Params {
         DQ_DEBUG_NOTE;
 

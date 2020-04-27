@@ -31,21 +31,6 @@
 #endif
 
 namespace rq {
-    enum Render_Command_Kind : uint32_t {
-        k_unRCInvalid = 0,
-        k_unRCRenderSubQueue,
-        k_unRCChangeProgram,
-        k_uNRCDrawElementModel,
-        k_unRCPushDebugNote,
-        k_unRCPopDebugNote,
-        k_unRCBindTexture,
-        k_unRCDrawTriangleStrip,
-        k_unRCMoveCamera,
-        k_unRCDrawLine,
-        k_unRCDrawRect,
-        k_unRCMax
-    };
-
     class Render_Queue;
 
     struct Draw_Triangle_Strip_Params {
