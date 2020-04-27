@@ -87,4 +87,15 @@ struct Game_Data {
     ADD_TABLE(static_props, Static_Prop);
     ADD_TABLE(animated_init, Animated_Init);
     ADD_TABLE(player_spawns, Player_Spawn);
+
+    void Clear() {
+        living.clear();
+        corpses.clear();
+        players.clear();
+        animated.clear();
+        static_props.clear();
+        animated_init.clear();
+        player_spawns.clear();
+        entities.clear();
+    }
 };

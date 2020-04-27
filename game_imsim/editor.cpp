@@ -7,6 +7,7 @@
 #include "common.h"
 #include "tools.h"
 #include "draw_queue.h"
+#include "serialization.h"
 
 #define CAMERA_MOVEDIR_RIGHT    (0x1)
 #define CAMERA_MOVEDIR_UP       (0x2)
@@ -98,6 +99,15 @@ public:
             dq.Add(dc);
         }
 
+        for (auto const& kv : gameData.static_props) {
+            auto& ent = gameData.entities[kv.first];
+            if (ent.hSprite == NULL) {
+                if (strlen(kv.second.pszSpritePath) != 0) {
+                    ent.hSprite = Shared_Sprite(kv.second.pszSpritePath);
+                }
+            }
+        }
+
         for (auto const& ent: gameData.entities) {
             if (ent.hSprite != NULL) {
                 dq::Draw_World_Thing_Params dc;
@@ -134,11 +144,24 @@ public:
         if (ImGui::Begin("File")) {
             ImGui::InputText("Name", m_pszFilename, FILENAME_MAX_SIZ);
             if (ImGui::Button("New")) {
+                m_pszFilename[0] = 0;
+                m_pCommon->aLevelGeometry.clear();
+                m_pCommon->aInitialGameData.Clear();
+                m_iSelectedEntity.reset();
             }
             if (ImGui::Button("Open")) {
+                if (strlen(m_pszFilename) != 0) {
+                    m_pCommon->aLevelGeometry.clear();
+                    m_pCommon->aInitialGameData.Clear();
+                    m_iSelectedEntity.reset();
+                    LoadLevel(m_pszFilename, m_pCommon->aInitialGameData);
+                }
             }
 
             if (ImGui::Button("Save")) {
+                if (strlen(m_pszFilename) != 0) {
+                    SaveLevel(m_pszFilename, m_pCommon->aInitialGameData);
+                }
             }
         }
         ImGui::End();

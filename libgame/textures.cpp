@@ -120,8 +120,10 @@ void Sprite2_Init() {
 void Sprite2_Shutdown() {
     if (gpCache != NULL) {
         for (auto const& kv : gpCache->map) {
-            printf("Sprite2: texture %x has leaked! GL handle=%x refcount=%u\n",
-                kv.second, (GLuint)kv.second->hTexture, kv.second->unRefCount);
+            if (kv.second->unRefCount != 0) {
+                printf("Sprite2: texture %x has leaked! GL handle=%x refcount=%u\n",
+                    kv.second, (GLuint)kv.second->hTexture, kv.second->unRefCount);
+            }
         }
         delete gpCache;
     }
