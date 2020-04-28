@@ -1,0 +1,22 @@
+table Entity {
+    bUsed: bool;
+    position: vec4;
+    size: vec4;
+    flRotation: float;
+
+#temporary
+    hSprite : Shared_Sprite;
+}
+
+table Living {
+    flHealth: float;
+    flMaxHealth: float;
+}
+
+#temporary
+table Corpse {
+    flTimeSinceDeath: float;
+}
+
+table Player {
+}
