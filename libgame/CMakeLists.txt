@@ -3,12 +3,14 @@ set(SRC_LIBGAME
 	stb_image.h
 	animator.cpp
 	collision.cpp
+	geometry.cpp
 	projectiles.cpp
 	shaders.cpp
 	textures.cpp
 
 	../public/animator.h
 	../public/collision.h
+	../public/geometry.h
 	../public/projectiles.h
 	../public/shaders.h
 	../public/textures.h

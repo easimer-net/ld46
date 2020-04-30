@@ -8,6 +8,7 @@
 #include "tools.h"
 #include "draw_queue.h"
 #include "serialization.h"
+#include "geometry.h"
 
 #define CAMERA_MOVEDIR_RIGHT    (0x1)
 #define CAMERA_MOVEDIR_UP       (0x2)
@@ -40,7 +41,7 @@ class Level_Editor : public IApplication {
 public:
     Level_Editor(Common_Data* pCommon)
         : m_pCommon(pCommon),
-        m_pszFilename{0},
+        m_pszLevelName{0},
         m_unCameraMoveDir(0),
         m_bShowGeoLayer(false),
         m_bShowBoundingBoxes(true)
@@ -142,25 +143,31 @@ public:
 
         // File menu
         if (ImGui::Begin("File")) {
-            ImGui::InputText("Name", m_pszFilename, FILENAME_MAX_SIZ);
+            ImGui::InputText("Name", m_pszLevelName, FILENAME_MAX_SIZ);
             if (ImGui::Button("New")) {
-                m_pszFilename[0] = 0;
+                m_pszLevelName[0] = 0;
                 m_pCommon->aLevelGeometry.clear();
                 m_pCommon->aInitialGameData.Clear();
                 m_iSelectedEntity.reset();
             }
             if (ImGui::Button("Open")) {
-                if (strlen(m_pszFilename) != 0) {
+                if (strlen(m_pszLevelName) != 0) {
                     m_pCommon->aLevelGeometry.clear();
                     m_pCommon->aInitialGameData.Clear();
                     m_iSelectedEntity.reset();
-                    LoadLevel(m_pszFilename, m_pCommon->aInitialGameData);
+                    auto const pszPathEntityData = std::string("data/") + m_pszLevelName + std::string(".ent");
+                    auto const pszPathGeoData = std::string("data/") + m_pszLevelName + std::string(".geo");
+                    LoadLevel(pszPathEntityData.c_str(), m_pCommon->aInitialGameData);
+                    LoadLevelGeometry(pszPathGeoData.c_str(), m_pCommon->aLevelGeometry);
                 }
             }
 
             if (ImGui::Button("Save")) {
-                if (strlen(m_pszFilename) != 0) {
-                    SaveLevel(m_pszFilename, m_pCommon->aInitialGameData);
+                if (strlen(m_pszLevelName) != 0) {
+                    auto const pszPathEntityData = std::string("data/") + m_pszLevelName + std::string(".ent");
+                    auto const pszPathGeoData = std::string("data/") + m_pszLevelName + std::string(".geo");
+                    SaveLevel(pszPathEntityData.c_str(), m_pCommon->aInitialGameData);
+                    SaveLevelGeometry(pszPathGeoData.c_str(), m_pCommon->aLevelGeometry);
                 }
             }
         }
@@ -499,7 +506,7 @@ private:
     dq::Draw_Queue m_dq;
     unsigned m_unCameraMoveDir;
 
-    char m_pszFilename[FILENAME_MAX_SIZ];
+    char m_pszLevelName[FILENAME_MAX_SIZ];
 
     bool m_bShowGeoLayer, m_bShowBoundingBoxes;
     Optional<Level_Geometry_Creation_State> m_geoCreate;
