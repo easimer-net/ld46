@@ -26,8 +26,11 @@
 #define RQ_COPY_ANNOTATION(dst, src) dst.pszFunction = src.pszFunction; dst.uiLine = src.uiLine;
 #define RQ_ANNOTATE2(cmd) cmd.pszFunction = __func__
 #else
+#define RQ_GET_ANNOTATE(cmd)
+#define RQ_GET_LINE(cmd)
+#define RQ_COPY_ANNOTATION(dst, src)
 #define RQ_ANNOTATE(x, y)
-#define RQ_ANNOTATE2(x, y)
+#define RQ_ANNOTATE2(x)
 #endif
 
 namespace rq {

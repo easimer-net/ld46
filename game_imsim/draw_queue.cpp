@@ -8,17 +8,8 @@
 #include "tools.h"
 #include "draw_queue.h"
 
-template <class ...Fs>
-struct overload : Fs... {
-    template <class ...Ts>
-    overload(Ts&& ...ts) : Fs{ std::forward<Ts>(ts) }...
-    {}
-
-    using Fs::operator()...;
-};
-
-template <class ...Ts>
-overload(Ts&&...)->overload<std::remove_reference_t<Ts>...>;
+template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
+template<class... Ts> overload(Ts...) -> overload<Ts...>;
 
 rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
     using namespace dq;
@@ -37,7 +28,7 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
     rq.Add(move_cam);
 
     for (auto const& cmd : dq) {
-        std::visit(overload(
+        std::visit(overload {
             [=, &rq](Draw_World_Thing_Params const& param) {
                 rq::Bind_Texture_Params bind_tex;
                 rq::Draw_Triangle_Strip_Params draw_tri;
@@ -56,8 +47,8 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
                 rq.Add(draw_tri);
 
             },
-            [](auto &&) {}
-        ), cmd);
+            [](auto) {},
+        }, cmd);
     }
 
     ch_prog.program = pCommon->hShaderDebugRed;
@@ -65,7 +56,7 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
     rq.Add(ch_prog);
 
     for (auto const& cmd : dq) {
-        std::visit(overload(
+        std::visit(overload {
             [=, &rq](Draw_Line_Params const& param) {
                 rq::Draw_Line_Params draw_line;
                 draw_line.x0 = param.x0;
@@ -75,8 +66,8 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
                 RQ_COPY_ANNOTATION(draw_line, param);
                 rq.Add(draw_line);
             },
-            [](auto&&) {}
-        ), cmd);
+            [](auto) {},
+        }, cmd);
     }
 
     ch_prog.program = pCommon->hShaderRect;
@@ -84,7 +75,7 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
     rq.Add(ch_prog);
 
     for (auto const& cmd : dq) {
-        std::visit(overload(
+        std::visit(overload {
             [=, &rq, &pCommon](Draw_Rect_Params const& param) {
                 rq::Draw_Rect_Params draw_rect;
                 draw_rect.r = param.r;
@@ -99,8 +90,8 @@ rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon) {
                 RQ_COPY_ANNOTATION(draw_rect, param);
                 rq.Add(draw_rect);
             },
-            [](auto&&) {}
-        ), cmd);
+            [](auto) {},
+        }, cmd);
     }
 
     return rq;
