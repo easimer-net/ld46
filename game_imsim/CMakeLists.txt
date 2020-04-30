@@ -11,7 +11,7 @@ set(SRC
 	convar.h
 
 	entities.def
-	imsim_temp.h
+	imsim.h
 
 	entry.cpp
 	# game_core.cpp
@@ -26,8 +26,14 @@ else()
     set(LINUXLIBS dl)
 endif()
 
+add_custom_command(
+	OUTPUT imsim.h serialization.cpp
+	COMMAND entity_gen ARGS ${CMAKE_CURRENT_BINARY_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/entities.def" imsim
+	DEPENDS entity_gen entities.def
+)
+
 add_executable(game_imsim ${SRC})
-target_include_directories(game_imsim PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIR})
+target_include_directories(game_imsim PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 target_link_directories(game_imsim PRIVATE ${SDL2TTF_LIBRARY} )
 target_link_libraries(game_imsim PRIVATE ${SDL2_LIBRARIES} SDL2_ttf glad imgui libgame ${LINUXLIBS})
 target_compile_options(game_imsim PRIVATE "-mfma")

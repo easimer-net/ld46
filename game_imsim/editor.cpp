@@ -251,7 +251,7 @@ public:
             auto& data = set[iEnt];
             ImGui::Separator();
             ImGui::Text("Static prop");
-            ImGui::InputText("Sprite path", data.pszSpritePath, MAX_STATIC_PROP_SPRITE_PATH);
+            ImGui::InputText("Sprite path", data.pszSpritePath, STATIC_PROP_PSZSPRITEPATH_SIZ);
             if (ImGui::Button("Reload sprite")) {
                 ent.hSprite = Shared_Sprite(data.pszSpritePath);
             }

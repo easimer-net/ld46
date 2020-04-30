@@ -1,19 +1,22 @@
 table Entity {
+#memory_only
     bUsed: bool;
+
     position: vec4;
     size: vec4;
     flRotation: float;
 
-#temporary
+#memory_only
+#reset
     hSprite : Shared_Sprite;
 }
 
-table Living {
+table Living living {
     flHealth: float;
     flMaxHealth: float;
 }
 
-#temporary
+#memory_only
 table Corpse {
     flTimeSinceDeath: float;
 }
@@ -23,4 +26,7 @@ table Player {
 
 table Static_Prop {
     pszSpritePath: char[128];
+}
+
+table Player_Spawn {
 }
