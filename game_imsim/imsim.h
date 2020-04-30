@@ -49,21 +49,6 @@ struct Static_Prop {
     char pszSpritePath[MAX_STATIC_PROP_SPRITE_PATH];
 };
 
-struct Animated {
-    Animation_Collection anims;
-    char chCurrent;
-    using State_Transition_Function = char (*)(Entity_ID iEnt, char chCurrent);
-    State_Transition_Function pFunc;
-    unsigned iFrame;
-    float flTimer;
-
-    bool bAttacking;
-};
-
-struct Animated_Init {
-    char pszAnimDefPath[128];
-};
-
 struct Player_Spawn {};
 
 #define TABLE_COLLECTION()                                                  \
@@ -83,18 +68,14 @@ struct Game_Data {
     ADD_TABLE(living, Living);
     ADD_TABLE(corpses, Corpse);
     ADD_TABLE(players, Player);
-    ADD_TABLE(animated, Animated);
     ADD_TABLE(static_props, Static_Prop);
-    ADD_TABLE(animated_init, Animated_Init);
     ADD_TABLE(player_spawns, Player_Spawn);
 
     void Clear() {
         living.clear();
         corpses.clear();
         players.clear();
-        animated.clear();
         static_props.clear();
-        animated_init.clear();
         player_spawns.clear();
         entities.clear();
     }

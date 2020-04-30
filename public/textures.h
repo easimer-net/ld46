@@ -108,3 +108,7 @@ private:
 inline void BindSprite(Shared_Sprite const& ss) {
     BindSprite((Sprite2)ss);
 }
+
+inline void Reset(Shared_Sprite& spr) {
+    spr.Reset();
+}

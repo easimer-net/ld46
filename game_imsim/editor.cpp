@@ -438,7 +438,6 @@ public:
             game_data.living.erase(id);
             game_data.corpses.erase(id);
             game_data.players.erase(id);
-            game_data.animated.erase(id);
         }
     }
 

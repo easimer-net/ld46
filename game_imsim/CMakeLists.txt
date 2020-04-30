@@ -10,6 +10,9 @@ set(SRC
 	convar.cpp
 	convar.h
 
+	entities.def
+	imsim_temp.h
+
 	entry.cpp
 	# game_core.cpp
 	game.cpp

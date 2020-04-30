@@ -280,7 +280,6 @@ public:
             game_data.living.erase(id);
             game_data.corpses.erase(id);
             game_data.players.erase(id);
-            game_data.animated.erase(id);
         }
     }
 
@@ -399,44 +398,6 @@ public:
         }
     }
 
-    // Animated logic
-    void AnimatedLogic(float flDelta, Game_Data& aGameData) {
-        for (auto& kvAnim : aGameData.animated) {
-            auto iEnt = kvAnim.first;
-            auto& animated = kvAnim.second;
-            auto& ent = aGameData.entities[iEnt];
-            Sprite_Direction kDir;
-            bool bLooped = false;
-            assert(ent.bUsed);
-
-            animated.flTimer += flDelta;
-            while (animated.flTimer > 1 / 8.0f) {
-                animated.iFrame++;
-                animated.flTimer -= 1 / 8.0f;
-            }
-
-            if (ent.flRotation >= 0.0f && ent.flRotation < M_PI / 2) {
-                kDir = k_unDir_NorthEast;
-            } else if (M_PI / 2 <= ent.flRotation && ent.flRotation < M_PI) {
-                kDir = k_unDir_NorthWest;
-            } else if (-M_PI / 2 < ent.flRotation && ent.flRotation < 0.0f) {
-                kDir = k_unDir_SouthEast;
-            } else {
-                kDir = k_unDir_SouthWest;
-            }
-
-            ent.hSprite = GetAnimationFrame(animated.anims, animated.chCurrent, kDir, animated.iFrame, &bLooped);
-
-            if (bLooped) {
-                if (animated.pFunc != NULL && animated.chCurrent != 'd') {
-                    char chNextAnim = animated.pFunc(iEnt, animated.chCurrent);
-                    animated.chCurrent = chNextAnim;
-                    animated.iFrame = 0;
-                }
-            }
-        }
-    }
-
     void MainLogic(float flDelta) {
         auto& dq = m_dq;
         auto& aGameData = m_pCommon->aGameData;
@@ -476,11 +437,6 @@ public:
             aGameData.living.erase(iLiving);
             aGameData.corpses[iLiving] = {};
             aGameData.players.erase(iLiving);
-            if (aGameData.animated.count(iLiving)) {
-                auto& anim = aGameData.animated[iLiving];
-                anim.chCurrent = 'd';
-                anim.iFrame = 0;
-            }
             printf("Entity %llu has died, created corpse\n", iLiving);
         }
 
@@ -497,9 +453,6 @@ public:
             DeleteEntity(iCorpse);
             printf("Removed corpse of entity %llu\n", iCorpse);
         }
-
-        // Animated
-        AnimatedLogic(flDelta, aGameData);
 
         // Generic drawable entity
         // Find entities with valid sprite data
