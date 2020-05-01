@@ -42,10 +42,15 @@ static void Write(FILE* hFile, float v) {
     fwrite(&v, sizeof(v), 1, hFile);
 }
 
-static void Write(FILE* hFile, unsigned unLength, char const* pszString) {
-    auto const unLength16 = (uint16_t)unLength;
-    fwrite(&unLength16, sizeof(unLength16), 1, hFile);
-    fwrite(pszString, 1, unLength16, hFile);
+// Array serialization routine for trivial types
+template<typename T>
+static
+typename std::enable_if<std::is_trivial<T>::value>::type
+Write(FILE* hFile, unsigned unCount, T const* pArray) {
+    assert(pArray != NULL);
+    auto const unCount16 = (uint16_t)unCount;
+    fwrite(&unCount16, sizeof(unCount16), 1, hFile);
+    fwrite(pArray, sizeof(T), unCount16, hFile);
 }
 
 static void Read(FILE* hFile, lm::Vector4* v) {
@@ -74,14 +79,27 @@ static void Read(FILE* hFile, float* v) {
     fread(v, sizeof(float), 1, hFile);
 }
 
-static void Read(FILE* hFile, unsigned unBufSize, char* pszString) {
+template<typename T>
+static
+typename std::enable_if<std::is_trivial<T>::value>::type
+Read(FILE* hFile, unsigned unBufCount, T* pArray) {
+    assert(pArray != NULL);
+    uint16_t unArrLen = 0;
+    fread(&unArrLen, sizeof(unArrLen), 1, hFile);
+    auto const unElementsToRead = (unBufCount > unArrLen) ? unArrLen : unBufCount;
+    fread(pArray, sizeof(T), unElementsToRead, hFile);
+}
+
+// Specialization for asciiz strings
+// NOTE: if you want a non-zero terminated byte arrays then use uint8_t arrays
+template<>
+static void Read<char>(FILE* hFile, unsigned unBufSize, char* pszString) {
     assert(pszString != NULL);
     uint16_t unStrLen = 0;
     fread(&unStrLen, sizeof(unStrLen), 1, hFile);
-    auto const unBytesToRead = (unBufSize > unStrLen) ? unStrLen : unBufSize - 1;
+    fread(pszString, 1, unBufSize, hFile);
 
-    fread(pszString, 1, unBytesToRead, hFile);
-    pszString[unBytesToRead] = 0;
+    pszString[unBufSize - 1] = 0;
 }
 
 struct Chunk_Section {
