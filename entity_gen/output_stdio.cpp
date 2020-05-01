@@ -35,7 +35,7 @@ private:
 IOutput* OutputToFile(char const* pszPath) {
     assert(pszPath != NULL);
 
-    auto hFile = fopen(pszPath, "rb");
+    auto hFile = fopen(pszPath, "wb");
 
     if (hFile != NULL) {
         return new Output_Stdio(hFile);
