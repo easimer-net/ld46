@@ -36,7 +36,7 @@ struct Field_Type {
 struct Field_Definition {
     String name;
     Field_Type type;
-    unsigned flags = k_unTableFlags_None;
+    unsigned flags = k_unFieldFlags_None;
 };
 
 struct Constant {
@@ -50,7 +50,7 @@ struct Table_Definition {
     // Variable name used in places like Game_Data
     String var_name;
     Vector<Field_Definition> fields;
-    unsigned flags = k_unFieldFlags_None;
+    unsigned flags = k_unTableFlags_None;
     Vector<Constant> constants;
 };
 
