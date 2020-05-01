@@ -2,8 +2,10 @@ set(SRC
 	stdafx.h
 	common.h
 	entry.cpp
+	output_stdio.cpp
 
 	mmap.h
+	output.h
 )
 
 if(WIN32)
