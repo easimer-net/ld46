@@ -87,7 +87,7 @@ endmacro()
 macro(ld_sse41 file)
 	if("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86")
 		if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-				set_source_files_properties(${file} PROPERTIES COMPILE_FLAGS -msse4.1)
+			set_source_files_properties(${file} PROPERTIES COMPILE_FLAGS -msse4.1)
 		endif()
 	endif()
 endmacro()
@@ -104,6 +104,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 # Statically link the CRT
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+if(MSVC)
+	# Disable permissive mode in VS 2017 or later
+	if (NOT (MSVC_VERSION LESS 1910))
+		add_compile_options (/permissive-)
+	endif()
+endif()
 
 find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
