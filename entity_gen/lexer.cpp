@@ -51,8 +51,8 @@ Vector<Token> Tokenize(char const* pszFile, size_t unLength) {
                 case '#': ret.push_back({ k_unToken_Pound, "#", uiLine, uiCol }); break;
                 case '{': ret.push_back({ k_unToken_Curly_Open, "{", uiLine, uiCol }); break;
                 case '}': ret.push_back({ k_unToken_Curly_Close, "}", uiLine, uiCol }); break;
-                case '[': ret.push_back({ k_unToken_Square_Open, "{", uiLine, uiCol }); break;
-                case ']': ret.push_back({ k_unToken_Square_Close, "}", uiLine, uiCol }); break;
+                case '[': ret.push_back({ k_unToken_Square_Open, "[", uiLine, uiCol }); break;
+                case ']': ret.push_back({ k_unToken_Square_Close, "]", uiLine, uiCol }); break;
                 }
             }
         } else {
@@ -65,8 +65,8 @@ Vector<Token> Tokenize(char const* pszFile, size_t unLength) {
             case '#': ret.push_back({ k_unToken_Pound, "#", uiLine, uiCol }); break;
             case '{': ret.push_back({ k_unToken_Curly_Open, "{", uiLine, uiCol }); break;
             case '}': ret.push_back({ k_unToken_Curly_Close, "}", uiLine, uiCol }); break;
-            case '[': ret.push_back({ k_unToken_Square_Open, "{", uiLine, uiCol }); break;
-            case ']': ret.push_back({ k_unToken_Square_Close, "}", uiLine, uiCol }); break;
+            case '[': ret.push_back({ k_unToken_Square_Open, "[", uiLine, uiCol }); break;
+            case ']': ret.push_back({ k_unToken_Square_Close, "]", uiLine, uiCol }); break;
             default:
                 uiIdCol = uiCol;
                 bInIdentifier = true;

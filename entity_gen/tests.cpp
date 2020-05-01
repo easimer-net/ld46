@@ -112,6 +112,7 @@ TEST_CASE("Array type", "[lexer]") {
     REQUIRE_TOKEN_EXACT(Square_Open, "[");
     REQUIRE_TOKEN_EXACT(Unknown, "256");
     REQUIRE_TOKEN_EXACT(Square_Close, "]");
+    REQUIRE_TOKEN_EXACT(Semicolon, ";");
     REQUIRE_TOKEN_EXACT(Curly_Close, "}");
     REQUIRE_TOKEN_EOF();
 }
