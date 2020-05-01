@@ -8,6 +8,11 @@
 #include "lexer.h"
 #include "parser.h"
 
+#include <unordered_set>
+#include <string>
+
+using String_Set = std::unordered_set<std::string>;
+
 #define PRINT_TOKEN_POS() \
     fprintf(stderr, "On line %zu, column %zu:\n", it->uiLine + 1, it->uiCol + 1);
 #define EXPECT_TOKEN_TYPE(type, msg) \
@@ -18,6 +23,10 @@
             it->string.c_str()); \
         return false; \
     }
+
+static String_Set gValidAttributes = {
+    "memory_only", "reset",
+};
 
 static bool OnlyHasDigits(String const& s) {
     for (char ch : s) {
@@ -33,6 +42,12 @@ static bool SyntaxCheckField(Token_Stream_Iterator& it) {
     while (it->kind == k_unToken_Pound) {
         it++;
         EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected identifier after a pound sign, got '%s'\n");
+        if(gValidAttributes.count(it->string) == 0) {
+            PRINT_TOKEN_POS();
+            fprintf(stderr, "Expected valid attribute, got '%s'\n",
+                    it->string.c_str());
+            return false;
+        }
         it++;
     }
 

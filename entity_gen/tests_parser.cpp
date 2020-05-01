@@ -153,3 +153,33 @@ TEST_CASE("Field attributes", "[parser]") {
     REQUIRE(field.flags ==
             (k_unFieldFlags_Memory_Only | k_unFieldFlags_Reset));
 }
+
+TEST_CASE("Missing table name", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOK(Curly_Open),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(!SyntaxCheckTop(tokens));
+}
+
+TEST_CASE("Missing field type", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOKU("field"), TOK(Colon), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(!SyntaxCheckTop(tokens));
+}
+
+TEST_CASE("Unknown attribute", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOK(Pound), TOKU("bad_attribute"),
+            TOKU("field"), TOK(Colon), TOKU("int"), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(!SyntaxCheckTop(tokens));
+}
