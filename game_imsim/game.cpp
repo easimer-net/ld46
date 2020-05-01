@@ -137,6 +137,16 @@ public:
             ent.hSprite = Shared_Sprite(propData.pszSpritePath);
             // NOTE(danielm): should we clear this set in release builds?
         }
+
+        // Keys
+        for (auto const& kvKey : m_pCommon->aGameData.keys) {
+            auto& ent = m_pCommon->aGameData.entities[kvKey.first];
+            auto const& key = kvKey.second;
+            char pszPath[16];
+            assert(0 <= key.eType && key.eType < 3);
+            snprintf(pszPath, 15, "data/key%d.png", key.eType);
+            ent.hSprite = Shared_Sprite(pszPath);
+        }
     }
 
     virtual Application_Result Release() override {
@@ -269,18 +279,7 @@ public:
 
     // Delete an entity
     void DeleteEntity(Entity_ID id) {
-        auto& game_data = m_pCommon->aGameData;
-        if (id < game_data.entities.size()) {
-            auto& ent = game_data.entities[id];
-            if (ent.hSprite) {
-                ent.hSprite.Reset();
-            }
-            ent.bUsed = false;
-
-            game_data.living.erase(id);
-            game_data.corpses.erase(id);
-            game_data.players.erase(id);
-        }
+        m_pCommon->aGameData.DeleteEntity(id);
     }
 
     // Create a player entity
@@ -395,6 +394,39 @@ public:
             if (CheckCollisions(m_pCommon->aLevelGeometry, cw).size() == 0) {
                 pos = vNewPos;
             }
+
+            if (m_bPlayerUse) {
+                Set<Entity_ID> doorsToOpen;
+                for (auto& kvDoor : aGameData.closed_doors) {
+                    auto& doorEnt = aGameData.entities[kvDoor.first];
+                    auto const vDoorDist = doorEnt.position - pos;
+                    if (lm::LengthSq(vDoorDist) < 1.0f) {
+                        auto& door = kvDoor.second;
+                        if (player.bKeys[door.eKeyRequired]) {
+                            aGameData.open_doors[kvDoor.first] = {};
+                            doorsToOpen.insert(kvDoor.first);
+                            printf("Player used key %d to open door #%zu\n", door.eKeyRequired, kvDoor.first);
+                        } else {
+                            printf("Player needs key %d to open that door\n", door.eKeyRequired);
+                        }
+                    }
+                }
+                for (auto id : doorsToOpen) aGameData.closed_doors.erase(id);
+            }
+
+            Set<Entity_ID> entitiesToRemove;
+            for (auto& kvKey : aGameData.keys) {
+                auto const iEnt = kvKey.first;
+                auto& keyEnt = aGameData.entities[iEnt];
+                auto const vDoorDist = keyEnt.position - pos;
+                if (lm::LengthSq(vDoorDist) < 1.0f) {
+                    auto& key = kvKey.second;
+                    player.bKeys[key.eType] = true;
+                    printf("Picked up key %d\n", key.eType);
+                    entitiesToRemove.insert(iEnt);
+                }
+            }
+            for (auto id : entitiesToRemove) DeleteEntity(id);
         }
     }
 
@@ -452,6 +484,16 @@ public:
         for (auto& iCorpse : expiredCorpses) {
             DeleteEntity(iCorpse);
             printf("Removed corpse of entity %llu\n", iCorpse);
+        }
+
+        // Doors
+        for (auto& kvDoor : aGameData.closed_doors) {
+            auto& doorEnt = aGameData.entities[kvDoor.first];
+            doorEnt.hSprite = Shared_Sprite("data/door_closed001.png");
+        }
+        for (auto& kvDoor : aGameData.open_doors) {
+            auto& doorEnt = aGameData.entities[kvDoor.first];
+            doorEnt.hSprite = Shared_Sprite("data/door_open001.png");
         }
 
         // Generic drawable entity

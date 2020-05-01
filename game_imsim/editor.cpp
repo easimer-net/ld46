@@ -109,7 +109,21 @@ public:
             }
         }
 
-        for (auto const& ent: gameData.entities) {
+        for (auto const& kv : gameData.open_doors) {
+            auto& ent = gameData.entities[kv.first];
+            if (ent.hSprite == NULL) {
+                ent.hSprite = Shared_Sprite("data/door_open001.png");
+            }
+        }
+
+        for (auto const& kv : gameData.closed_doors) {
+            auto& ent = gameData.entities[kv.first];
+            if (ent.hSprite == NULL) {
+                ent.hSprite = Shared_Sprite("data/door_closed001.png");
+            }
+        }
+
+        for (auto const& ent : gameData.entities) {
             if (ent.hSprite != NULL) {
                 dq::Draw_World_Thing_Params dc;
                 dc.x = ent.position[0];
@@ -223,6 +237,8 @@ public:
                 ImGui::InputFloat("Rotation", &ent.flRotation);
                 EditLiving(iEnt);
                 EditStaticProp(iEnt);
+                EditClosedDoor(iEnt);
+                EditKey(iEnt);
 
                 if (bDelete) {
                     m_iSelectedEntity.reset();
@@ -266,6 +282,56 @@ public:
             ImGui::Separator();
         } else {
             if (ImGui::Button("Make Static_Prop")) {
+                set[iEnt] = {};
+            }
+        }
+    }
+
+    void EditClosedDoor(Entity_ID iEnt) {
+        auto& set = m_pCommon->aInitialGameData.closed_doors;
+        auto& ent = m_pCommon->aInitialGameData.entities[iEnt];
+        if (set.count(iEnt)) {
+            auto& data = set[iEnt];
+            ImGui::Separator();
+            ImGui::Text("Closed door");
+            char const* aKeyTypes[] = {"Emerald", "Silver", "Gold"};
+            if (ImGui::BeginCombo("Key type", aKeyTypes[data.eKeyRequired])) {
+                for (int i = 0; i < 3; i++) {
+                    if (ImGui::Selectable(aKeyTypes[i])) {
+                        data.eKeyRequired = i;
+                        ent.hSprite = Shared_Sprite("data/door_closed001.png");
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        } else {
+            if (ImGui::Button("Make Closed_Door")) {
+                set[iEnt] = {};
+            }
+        }
+    }
+
+    void EditKey(Entity_ID iEnt) {
+        auto& set = m_pCommon->aInitialGameData.keys;
+        auto& ent = m_pCommon->aInitialGameData.entities[iEnt];
+        if (set.count(iEnt)) {
+            auto& data = set[iEnt];
+            ImGui::Separator();
+            ImGui::Text("Key");
+            char const* aKeyTypes[] = {"Emerald", "Silver", "Gold"};
+            if (ImGui::BeginCombo("Key type", aKeyTypes[data.eType])) {
+                for (int i = 0; i < 3; i++) {
+                    if (ImGui::Selectable(aKeyTypes[i])) {
+                        data.eType = i;
+                        char pszPath[16];
+                        snprintf(pszPath, 15, "data/key%d.png", i);
+                        ent.hSprite = Shared_Sprite(pszPath);
+                    }
+                }
+                ImGui::EndCombo();
+            }
+        } else {
+            if (ImGui::Button("Make Key")) {
                 set[iEnt] = {};
             }
         }

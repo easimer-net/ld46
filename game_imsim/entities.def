@@ -22,6 +22,7 @@ table Corpse {
 }
 
 table Player {
+    bKeys : bool[3];
 }
 
 table Static_Prop {
@@ -29,4 +30,15 @@ table Static_Prop {
 }
 
 table Player_Spawn {
+}
+
+table Key {
+    eType : int;
+}
+
+table Closed_Door {
+    eKeyRequired : int;
+}
+
+table Open_Door {
 }
