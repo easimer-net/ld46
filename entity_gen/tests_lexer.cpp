@@ -1,6 +1,6 @@
 // === Copyright (c) 2020 easimer.net. All rights reserved. ===
 //
-// Purpose: testing the lexer
+// Purpose: testing
 //
 
 #define CATCH_CONFIG_MAIN

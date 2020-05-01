@@ -19,17 +19,24 @@ else()
     set(SRC_PLAT mmap_posix.cpp)
 endif()
 
+set(SRC_TESTS
+    ${SRC_CORE}
+    tests_lexer.cpp
+    tests_parser.cpp
+)
+
 set(SRC
 	entry.cpp
     ${SRC_CORE}
     ${SRC_PLAT}
 )
 
+
 add_executable(entity_gen ${SRC})
 target_precompile_headers(entity_gen PRIVATE "stdafx.h")
 ld_builddir(entity_gen)
 
-add_executable(entity_gen_tests ${SRC_CORE} tests.cpp)
+add_executable(entity_gen_tests ${SRC_TESTS})
 target_precompile_headers(entity_gen_tests PRIVATE "stdafx.h")
 ld_builddir(entity_gen_tests)
 
