@@ -108,3 +108,48 @@ TEST_CASE("Array fields", "[parser]") {
     REQUIRE(constant.name == "TEST_FIELD_SIZ");
     REQUIRE(constant.value == 32);
 }
+
+TEST_CASE("Table attributes", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Pound), TOKU("memory_only"),
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const tables = ParseTop(tokens);
+    REQUIRE(tables.size() == 1);
+    auto const& table = tables[0];
+    REQUIRE(table.name == "Test");
+    REQUIRE(table.var_name == "tests");
+    REQUIRE(table.fields.size() == 0);
+    REQUIRE(table.constants.size() == 0);
+    REQUIRE(table.flags == k_unTableFlags_Memory_Only);
+}
+
+TEST_CASE("Field attributes", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOK(Pound), TOKU("memory_only"),
+            TOK(Pound), TOKU("reset"),
+            TOKU("field"), TOK(Colon), TOKU("int"), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const tables = ParseTop(tokens);
+    REQUIRE(tables.size() == 1);
+    auto const& table = tables[0];
+    REQUIRE(table.name == "Test");
+    REQUIRE(table.var_name == "tests");
+    REQUIRE(table.fields.size() == 1);
+    REQUIRE(table.constants.size() == 0);
+    REQUIRE(table.flags == k_unTableFlags_None);
+
+    auto const& field = table.fields[0];
+    REQUIRE(field.name == "field");
+    REQUIRE(field.type.base == "int");
+    REQUIRE(field.type.count == 1);
+    REQUIRE(field.flags ==
+            (k_unFieldFlags_Memory_Only | k_unFieldFlags_Reset));
+}
