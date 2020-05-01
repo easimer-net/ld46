@@ -100,7 +100,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Include public headers for all targets
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/public")
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+if(WIN32)
+    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+endif()
 
 # Statically link the CRT
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -113,7 +115,7 @@ if(MSVC)
 endif()
 
 find_package(SDL2 REQUIRED)
-find_package(SDL2_ttf REQUIRED)
+# find_package(SDL2_ttf REQUIRED)
 
 add_subdirectory(glad)
 add_subdirectory(imgui)
