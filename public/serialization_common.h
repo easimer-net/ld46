@@ -93,7 +93,7 @@ Read(FILE* hFile, unsigned unBufCount, T* pArray) {
 // Specialization for asciiz strings
 // NOTE: if you want a non-zero terminated byte arrays then use uint8_t arrays
 template<>
-static void Read<char>(FILE* hFile, unsigned unBufSize, char* pszString) {
+void Read<char>(FILE* hFile, unsigned unBufSize, char* pszString) {
     assert(pszString != NULL);
     uint16_t unStrLen = 0;
     fread(&unStrLen, sizeof(unStrLen), 1, hFile);

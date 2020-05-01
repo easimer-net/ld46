@@ -5,6 +5,10 @@
 
 #pragma once
 
+#include <string>
+#include <optional>
+#include <variant>
+
 #include <utils/linear_math.h>
 #include <utils/glres.h>
 
