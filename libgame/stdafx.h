@@ -6,6 +6,8 @@
 #pragma once
 
 #include <cassert>
+#include <cstdio>
+#include <cstring>
 
 #include <utils/linear_math.h>
 #include <utils/glres.h>
