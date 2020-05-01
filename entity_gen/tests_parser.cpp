@@ -78,3 +78,33 @@ TEST_CASE("Scalar fields", "[parser]") {
     REQUIRE(field2.type.count == 1);
     REQUIRE(field2.flags == k_unFieldFlags_None);
 }
+
+TEST_CASE("Array fields", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOKU("field"), TOK(Colon), TOKU("char"),
+                TOK(Square_Open), TOKU("32"), TOK(Square_Close),
+                TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const tables = ParseTop(tokens);
+    REQUIRE(tables.size() == 1);
+    auto const& table = tables[0];
+    REQUIRE(table.name == "Test");
+    REQUIRE(table.var_name == "tests");
+    REQUIRE(table.fields.size() == 1);
+    REQUIRE(table.constants.size() == 1);
+    REQUIRE(table.flags == k_unTableFlags_None);
+
+    auto const& field = table.fields[0];
+    REQUIRE(field.name == "field");
+    REQUIRE(field.type.base == "char");
+    REQUIRE(field.type.count == 32);
+    REQUIRE(field.flags == k_unFieldFlags_None);
+
+    auto const& constant = table.constants[0];
+    REQUIRE(constant.name == "TEST_FIELD_SIZ");
+    REQUIRE(constant.value == 32);
+}
