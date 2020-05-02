@@ -83,6 +83,7 @@ struct Token {
 #define TAB3 TAB2 TAB
 #define TAB4 TAB3 TAB
 #define TAB5 TAB4 TAB
+#define TAB6 TAB5 TAB
 
 inline void ToUpper(String& s) {
     for (auto& ch : s) {

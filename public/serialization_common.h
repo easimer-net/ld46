@@ -42,6 +42,10 @@ static void Write(FILE* hFile, float v) {
     fwrite(&v, sizeof(v), 1, hFile);
 }
 
+static void Write(FILE* hFile, uint32_t v) {
+    fwrite(&v, sizeof(v), 1, hFile);
+}
+
 // Array serialization routine for trivial types
 template<typename T>
 static
@@ -77,6 +81,11 @@ static void Read(FILE* hFile, int* v) {
 static void Read(FILE* hFile, float* v) {
     assert(v != NULL);
     fread(v, sizeof(float), 1, hFile);
+}
+
+static void Read(FILE* hFile, uint32_t* v) {
+    assert(v != NULL);
+    fread(v, sizeof(uint32_t), 1, hFile);
 }
 
 template<typename T>
