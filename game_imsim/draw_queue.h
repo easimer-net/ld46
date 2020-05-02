@@ -34,26 +34,26 @@
 
 namespace dq {
     struct Draw_World_Thing_Params {
-        DQ_DEBUG_NOTE;
-
         Shared_Sprite hSprite;
         float x, y;
         float width, height;
+
+        DQ_DEBUG_NOTE;
     };
 
     struct Draw_Line_Params {
-        DQ_DEBUG_NOTE;
-
         float x0, y0;
         float x1, y1;
+
+        DQ_DEBUG_NOTE;
     };
 
     struct Draw_Rect_Params {
-        DQ_DEBUG_NOTE;
-
         float x0, y0;
         float x1, y1;
         float r, g, b, a;
+
+        DQ_DEBUG_NOTE;
     };
 
     using Draw_Command = std::variant<

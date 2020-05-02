@@ -155,6 +155,25 @@ public:
             }
         }
 
+        if (m_iSelectedEntity) {
+            auto const& ent = m_pCommon->aInitialGameData.entities[m_iSelectedEntity.value()];
+            auto const center = ent.position + lm::Vector4(-0.025, -0.025);
+            auto const up = ent.position + lm::Vector4(0.05, 1);
+            auto const right = ent.position + lm::Vector4(1, 0.05);
+            dq::Draw_Rect_Params dcY = {
+                center[0], center[1], up[0], up[1],
+                0, 1, 0, 1,
+            };
+            dq::Draw_Rect_Params dcX = {
+                center[0], center[1], right[0], right[1],
+                1, 0, 0, 1,
+            };
+            DQ_ANNOTATE(dcY);
+            DQ_ANNOTATE(dcX);
+            dq.Add(dcX);
+            dq.Add(dcY);
+        }
+
         // File menu
         if (ImGui::Begin("File")) {
             ImGui::InputText("Name", m_pszLevelName, FILENAME_MAX_SIZ);
@@ -375,7 +394,24 @@ public:
                     -(2 * ev.motion.y / m_pCommon->flScreenHeight - 1),
                 0, 1);
 
-            m_pCommon->vCursorWorldPos = m_pCommon->matInvProj * vNdcPos;
+            auto const vPrevCursorPos = m_pCommon->vCursorWorldPos;
+            auto const vCurrentCursorPos = m_pCommon->matInvProj * vNdcPos;
+            m_pCommon->vCursorWorldPos = vCurrentCursorPos;
+
+            auto const bIsLeftBtnHeld = (ev.motion.state & SDL_BUTTON(1)) != 0;
+            if (bIsLeftBtnHeld && m_iSelectedEntity.has_value()) {
+                auto& ent = m_pCommon->aInitialGameData.entities[m_iSelectedEntity.value()];
+                auto const vCursorDelta = vCurrentCursorPos - vPrevCursorPos;
+                // Distance from Y-axis
+                auto const flDistY = fabs(ent.position[0] - vCurrentCursorPos[0]);
+                // Distance from X-axis
+                auto const flDistX = fabs(ent.position[1] - vCurrentCursorPos[1]);
+                if (flDistX > 0.001 && flDistX < 0.25) {
+                    ent.position = lm::Vector4(ent.position[0] + vCursorDelta[0], ent.position[1]);
+                } else if (flDistY > 0.001 && flDistY < 0.25) {
+                    ent.position = lm::Vector4(ent.position[0], ent.position[1] + vCursorDelta[1]);
+                }
+            }
         } else if (ev.type == SDL_MOUSEBUTTONDOWN) {
             auto const vNdcPos =
                 lm::Vector4(
