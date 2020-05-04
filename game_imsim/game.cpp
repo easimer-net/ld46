@@ -413,10 +413,12 @@ public:
             auto& ent = aGameData.entities[iEnt];
 
             assert(phys.body != NULL);
-            auto physPos = phys.body->GetPosition();
-            auto physRot = phys.body->GetAngle();
-            ent.position = { physPos.x, physPos.y };
-            ent.flRotation = physRot;
+            if (phys.body != NULL) {
+                auto physPos = phys.body->GetPosition();
+                auto physRot = phys.body->GetAngle();
+                ent.position = { physPos.x, physPos.y };
+                ent.flRotation = physRot;
+            }
         }
     }
 
@@ -432,9 +434,9 @@ public:
         for (auto& kvPlayer : aGameData.players) {
             auto const iPlayer = kvPlayer.first;
             auto& ent = aGameData.entities[iPlayer];
+            auto& phys = aGameData.phys_dynamics[iPlayer];
             auto& player = kvPlayer.second;
             auto& pos = ent.position;
-            float flCurrentSpeed = PLAYER_SPEED;
             auto const vLookDir = lm::Normalized(m_pCommon->vCursorWorldPos - pos);
             ent.flRotation = atan2f(vLookDir[1], vLookDir[0]);
 
@@ -444,7 +446,13 @@ public:
             auto const vDist = pos - m_pCommon->vCameraPosition;
             m_pCommon->vCameraPosition = m_pCommon->vCameraPosition + flDelta * vDist;
 
-            auto const vMove = flCurrentSpeed * flDelta * vPlayerMoveDir;
+            if (PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_UP) != 0) {
+                // phys.body->ApplyForceToCenter({ 0, -10 }, true);
+                phys.body->ApplyLinearImpulseToCenter({ 0, flDelta * 16 }, true);
+            }
+
+            auto const vMove = PLAYER_SPEED * vPlayerMoveDir;
+            printf("%f %f\n", vMove[0], vMove[1]);
 
             /*
             // NOTE(danielm): old collision code, only checks against the world geometry
@@ -459,13 +467,8 @@ public:
             }
             */
 
-            auto const vMovePos = ent.position + vMove;
-
-            Collision_AABB bb;
-            auto vHalfSize = ent.size / 2;
-            bb.min = vMovePos - vHalfSize;
-            bb.max = vMovePos + vHalfSize;
-            lm::Vector4 proj;
+            auto vel = phys.body->GetLinearVelocity();
+            phys.body->SetLinearVelocity({ vMove[0], vel.y });
 
             if (m_bPlayerUse) {
                 Set<Entity_ID> doorsToOpen;
