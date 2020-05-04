@@ -26,6 +26,7 @@ using String_Set = std::unordered_set<std::string>;
 
 static String_Set gValidAttributes = {
     "memory_only", "reset",
+    "not_owning",
 };
 
 static bool OnlyHasDigits(String const& s) {
@@ -33,6 +34,31 @@ static bool OnlyHasDigits(String const& s) {
         if (!('0' <= ch && ch <= '9')) {
             return false;
         }
+    }
+
+    return true;
+}
+
+static bool SyntaxCheckType(Token_Stream_Iterator& it) {
+    if (it->kind == k_unToken_Unknown && it->string == "*") {
+        it++;
+        EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected base type after asterisk in type, got '%s'\n");
+    } else {
+        EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected base type in type, got '%s'\n");
+    }
+    it++;
+
+    if (it->kind == k_unToken_Square_Open) {
+        it++;
+        EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected number in type specification, got '%s'\n");
+        if (!OnlyHasDigits(it->string)) {
+            PRINT_TOKEN_POS();
+            fprintf(stderr, "Expected number in type specification, got '%s'\n", it->string.c_str());
+            return false;
+        }
+        it++;
+        EXPECT_TOKEN_TYPE(k_unToken_Square_Close, "Expected closing square bracket in type specification, got '%s'\n");
+        it++;
     }
 
     return true;
@@ -57,21 +83,10 @@ static bool SyntaxCheckField(Token_Stream_Iterator& it) {
     EXPECT_TOKEN_TYPE(k_unToken_Colon, "Expected colon in the middle of a field declaration, got '%s'\n");
     it++;
 
-    // base type
-    EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected identifier at the end of a field declaration, got '%s'\n");
-    it++;
-
-    if (it->kind == k_unToken_Square_Open) {
-        it++;
-        EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected number in type specification, got '%s'\n");
-        if (!OnlyHasDigits(it->string)) {
-            PRINT_TOKEN_POS();
-            fprintf(stderr, "Expected number in type specification, got '%s'\n", it->string.c_str());
-            return false;
-        }
-        it++;
-        EXPECT_TOKEN_TYPE(k_unToken_Square_Close, "Expected closing square bracket in type specification, got '%s'\n");
-        it++;
+    if (!SyntaxCheckType(it)) {
+        PRINT_TOKEN_POS();
+        fprintf(stderr, "Invalid type specification in field declaration\n");
+        return false;
     }
 
     EXPECT_TOKEN_TYPE(k_unToken_Semicolon, "Unexpected token at the end of a field declaration: expected semicolon, got '%s'\n");
@@ -82,12 +97,6 @@ static bool SyntaxCheckField(Token_Stream_Iterator& it) {
 
 static bool SyntaxCheckTable(Token_Stream_Iterator& it) {
     bool bRet = true;
-
-    while (it->kind == k_unToken_Pound) {
-        it++;
-        EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected identifier after a pound sign, got '%s'\n");
-        it++;
-    }
 
     EXPECT_TOKEN_TYPE(k_unToken_Table, "Expected keyword 'table' at the beginning of a table declaration, got '%s'");
     it++;
@@ -115,12 +124,66 @@ static bool SyntaxCheckTable(Token_Stream_Iterator& it) {
     return bRet;
 }
 
+static bool SyntaxCheckTopAttribute(Token_Stream_Iterator& it) {
+    bool bRet = true;
+
+    assert(it->kind == k_unToken_Pound);
+    it++;
+    EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected identifier after a pound sign, got '%s'\n");
+    it++;
+
+    return bRet;
+}
+
+static bool SyntaxCheckAlias(Token_Stream_Iterator& it) {
+    bool bRet = true;
+
+    assert(it->kind == k_unToken_Alias);
+    it++;
+    EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected identifier after keyword 'alias', got '%s'\n");
+    it++;
+
+    if (it->kind == k_unToken_Semicolon) {
+        it++;
+        return true;
+    } else {
+        if (it->kind == k_unToken_Colon) {
+            it++;
+
+            if (!SyntaxCheckType(it)) {
+                PRINT_TOKEN_POS();
+                fprintf(stderr, "Expected type in alias\n");
+                return false;
+            }
+
+            EXPECT_TOKEN_TYPE(k_unToken_Semicolon, "Unexpected token at end of an alias: expected semicolon, got '%s'\n");
+            it++;
+        } else {
+            PRINT_TOKEN_POS();
+            fprintf(stderr, "Expected semicolon or colon after the identifier in the type alias, got '%s'\n", it->string.c_str());
+            return false;
+        }
+    }
+
+    return bRet;
+}
+
 bool SyntaxCheckTop(Vector<Token> const& tokens) {
     bool bRet = true;
     auto it = Token_Stream_Iterator(tokens);
 
     while (bRet && it->kind != k_unToken_EOF) {
-        bRet &= SyntaxCheckTable(it);
+        switch (it->kind) {
+        case k_unToken_Pound:
+            bRet &= SyntaxCheckTopAttribute(it);
+            break;
+        case k_unToken_Table:
+            bRet &= SyntaxCheckTable(it);
+            break;
+        case k_unToken_Alias:
+            bRet &= SyntaxCheckAlias(it);
+            break;
+        }
     }
 
     return bRet;
@@ -133,6 +196,14 @@ static Field_Type ParseType(Token_Stream_Iterator& it) {
     String typeName;
 
     ASSERT_TOKEN_KIND(k_unToken_Unknown);
+
+    ret.is_pointer = false;
+    if (it->string == "*") {
+        ret.is_pointer = true;
+        it++;
+        ASSERT_TOKEN_KIND(k_unToken_Unknown);
+    }
+
     ret.base = it->string;
     ret.count = 1;
     it++;
@@ -163,8 +234,10 @@ static Field_Definition ParseField(Token_Stream_Iterator& it) {
         it++;
         if (it->string == "reset") {
             def.flags |= k_unFieldFlags_Reset;
-        }  else if (it->string == "memory_only") {
+        } else if (it->string == "memory_only") {
             def.flags |= k_unFieldFlags_Memory_Only;
+        } else if(it->string == "not_owning") {
+            def.flags |= k_unFieldFlags_Not_Owning;
         } else {
             fprintf(stderr, "Unknown field attribute '%s'\n", it->string.c_str());
         }
@@ -179,6 +252,13 @@ static Field_Definition ParseField(Token_Stream_Iterator& it) {
     it++;
 
     def.type = ParseType(it);
+
+    if (def.type.is_pointer) {
+        // We don't know how to serialize a pointer.
+        // We also don't know how to free/deallocate/reset it, so we ask the
+        // game code to implement Reset().
+        def.flags |= k_unFieldFlags_Memory_Only | k_unFieldFlags_Reset;
+    }
 
     ASSERT_TOKEN_KIND(k_unToken_Semicolon);
     it++;
@@ -245,12 +325,46 @@ static Table_Definition ParseTable(Token_Stream_Iterator& it) {
     return def;
 }
 
-Vector<Table_Definition> ParseTop(Vector<Token> const& tokens) {
-    Vector<Table_Definition> ret;
+static Type_Alias ParseAlias(Token_Stream_Iterator& it) {
+    Type_Alias ret;
+
+    ASSERT_TOKEN_KIND(k_unToken_Alias);
+    it++;
+
+    ASSERT_TOKEN_KIND(k_unToken_Unknown);
+    ret.name = it->string;
+    it++;
+
+    if (it->kind == k_unToken_Colon) {
+        it++;
+        ret.type = ParseType(it);
+    } else {
+        ret.type.base = ret.name;
+        ret.type.count = 1;
+        ret.type.is_pointer = false;
+    }
+
+    ASSERT_TOKEN_KIND(k_unToken_Semicolon);
+    it++;
+
+    return ret;
+}
+
+Top ParseTop(Vector<Token> const& tokens) {
+    Top ret;
     auto it = Token_Stream_Iterator(tokens);
 
     while (it->kind != k_unToken_EOF) {
-        ret.push_back(ParseTable(it));
+        switch (it->kind) {
+        // TODO(danielm): make attribute parsing it's own thing
+        case k_unToken_Pound:
+        case k_unToken_Table:
+            ret.table_defs.push_back(ParseTable(it));
+            break;
+        case k_unToken_Alias:
+            ret.type_aliases.push_back(ParseAlias(it));
+            break;
+        }
     }
 
     return ret;

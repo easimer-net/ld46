@@ -32,17 +32,17 @@ static bool Process(Paths const& paths, String const& pszGameName) {
         bRet = SyntaxCheckTop(tokens);
 
         if (bRet) {
-            auto const tables = ParseTop(tokens);
+            auto const top = ParseTop(tokens);
             auto pOutputHeader = OutputToFile(paths.outputHeader.c_str());
             if (pOutputHeader != NULL) {
-                GenerateHeaderFile(pOutputHeader, tables);
+                GenerateHeaderFile(pOutputHeader, top);
             } else {
                 printf("Couldn't open header output file '%s'\n", paths.outputHeader.c_str());
             }
 
             auto pOutputSerial = OutputToFile(paths.outputSer.c_str());
             if (pOutputSerial != NULL) {
-                GenerateSerializationCode(pOutputSerial, pszGameName, tables);
+                GenerateSerializationCode(pOutputSerial, pszGameName, top);
             } else {
                 printf("Couldn't open serialization code output file '%s'\n", paths.outputSer.c_str());
             }

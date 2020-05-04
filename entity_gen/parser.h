@@ -7,4 +7,4 @@
 #include "common.h"
 
 bool SyntaxCheckTop(Vector<Token> const& tokens);
-Vector<Table_Definition> ParseTop(Vector<Token> const& tokens);
+Top ParseTop(Vector<Token> const& tokens);

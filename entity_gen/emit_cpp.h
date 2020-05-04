@@ -7,5 +7,5 @@
 #include "parser.h"
 #include "output.h"
 
-void GenerateSerializationCode(IOutput* out, String const& pszGameName, Vector<Table_Definition> const& tables);
-void GenerateHeaderFile(IOutput* out, Vector<Table_Definition> const& tables);
+void GenerateSerializationCode(IOutput* out, String const& pszGameName, Top const& top);
+void GenerateHeaderFile(IOutput* out, Top const& top);

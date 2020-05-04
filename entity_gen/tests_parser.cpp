@@ -22,7 +22,8 @@ TEST_CASE("Empty table", "[parser]") {
     };
 
     REQUIRE(SyntaxCheckTop(tokens));
-    auto const tables = ParseTop(tokens);
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
     REQUIRE(tables.size() == 1);
     auto const& table = tables[0];
     REQUIRE(table.name == "Test");
@@ -39,7 +40,8 @@ TEST_CASE("Empty table with custom var_name", "[parser]") {
     };
 
     REQUIRE(SyntaxCheckTop(tokens));
-    auto const tables = ParseTop(tokens);
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
     REQUIRE(tables.size() == 1);
     auto const& table = tables[0];
     REQUIRE(table.name == "Test");
@@ -58,7 +60,8 @@ TEST_CASE("Scalar fields", "[parser]") {
     };
 
     REQUIRE(SyntaxCheckTop(tokens));
-    auto const tables = ParseTop(tokens);
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
     REQUIRE(tables.size() == 1);
     auto const& table = tables[0];
     REQUIRE(table.name == "Test");
@@ -89,7 +92,8 @@ TEST_CASE("Array fields", "[parser]") {
     };
 
     REQUIRE(SyntaxCheckTop(tokens));
-    auto const tables = ParseTop(tokens);
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
     REQUIRE(tables.size() == 1);
     auto const& table = tables[0];
     REQUIRE(table.name == "Test");
@@ -117,7 +121,8 @@ TEST_CASE("Table attributes", "[parser]") {
     };
 
     REQUIRE(SyntaxCheckTop(tokens));
-    auto const tables = ParseTop(tokens);
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
     REQUIRE(tables.size() == 1);
     auto const& table = tables[0];
     REQUIRE(table.name == "Test");
@@ -137,7 +142,8 @@ TEST_CASE("Field attributes", "[parser]") {
     };
 
     REQUIRE(SyntaxCheckTop(tokens));
-    auto const tables = ParseTop(tokens);
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
     REQUIRE(tables.size() == 1);
     auto const& table = tables[0];
     REQUIRE(table.name == "Test");
@@ -182,4 +188,57 @@ TEST_CASE("Unknown attribute", "[parser]") {
     };
 
     REQUIRE(!SyntaxCheckTop(tokens));
+}
+
+TEST_CASE("Parsing pointer field", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOKU("field"), TOK(Colon), TOKU("*"), TOKU("int"), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
+    REQUIRE(tables.size() == 1);
+    auto const& table = tables[0];
+    REQUIRE(table.name == "Test");
+    REQUIRE(table.fields.size() == 1);
+
+    auto const& field = table.fields[0];
+    REQUIRE(field.name == "field");
+    REQUIRE(field.type.base == "int");
+    REQUIRE(field.type.is_pointer);
+    REQUIRE(field.type.count == 1);
+    REQUIRE(field.flags ==
+            (k_unFieldFlags_Memory_Only | k_unFieldFlags_Reset));
+}
+
+TEST_CASE("Parsing alias", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Alias), TOKU("real32"), TOK(Colon), TOKU("float"), TOK(Semicolon),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+
+    REQUIRE(top.type_aliases.size() == 1);
+    auto& alias = top.type_aliases[0];
+    REQUIRE(alias.name == "real32");
+    REQUIRE(alias.type.base == "float");
+}
+
+TEST_CASE("Forward decl", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Alias), TOKU("Aggregate_Type"), TOK(Semicolon),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+
+    REQUIRE(top.type_aliases.size() == 1);
+    auto& alias = top.type_aliases[0];
+    REQUIRE(alias.name == "Aggregate_Type");
+    REQUIRE(alias.type.base == "Aggregate_Type");
+    REQUIRE(alias.type.count == 1);
 }

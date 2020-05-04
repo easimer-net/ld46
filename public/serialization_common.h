@@ -10,9 +10,10 @@
 #include <cstdio>
 #include <functional> // defer
 #include <utils/linear_math.h>
+#include <inttypes.h>
 
 #define MAGIC               "Ld46"
-#define VERSION             (0x0001)
+#define VERSION             (0x0002)
 
 #pragma pack(push, 1)
 struct Level_Header {
@@ -44,6 +45,11 @@ static void Write(FILE* hFile, float v) {
 
 static void Write(FILE* hFile, uint32_t v) {
     fwrite(&v, sizeof(v), 1, hFile);
+}
+
+static void Write(FILE* hFile, bool v) {
+    uint8_t buf = v ? 1 : 0;
+    fwrite(&buf, sizeof(buf), 1, hFile);
 }
 
 // Array serialization routine for trivial types
@@ -88,6 +94,13 @@ static void Read(FILE* hFile, uint32_t* v) {
     fread(v, sizeof(uint32_t), 1, hFile);
 }
 
+static void Read(FILE* hFile, bool* v) {
+    assert(v != NULL);
+    uint8_t buf;
+    fread(&buf, sizeof(buf), 1, hFile);
+    *v = buf != 0;
+}
+
 template<typename T>
 static
 typename std::enable_if<std::is_trivial<T>::value>::type
@@ -112,7 +125,7 @@ void Read<char>(FILE* hFile, unsigned unBufSize, char* pszString) {
 }
 
 struct Chunk_Section {
-    Chunk_Section(FILE* hFile, uint16_t id) : hFile(hFile) {
+    Chunk_Section(FILE* hFile, uint64_t id) : hFile(hFile) {
         uint32_t zero = 0;
         fwrite(&id, sizeof(id), 1, hFile);
     }
@@ -139,7 +152,7 @@ struct Defer_ {
 Chunk_Section section(hFile, id);               \
 uint16_t const unCount = table.size();          \
 fwrite(&unCount, sizeof(unCount), 1, hFile);    \
-printf("Chunk %u has %u elements\n", id, unCount);
+printf("Chunk 0x%" PRIx64 " has %u elements\n", id, unCount);
 
 #define END_SECTION_WRITE() }
 

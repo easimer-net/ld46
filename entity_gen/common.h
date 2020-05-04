@@ -20,6 +20,9 @@ enum Field_Flags : unsigned {
     // The function `Reset(decltype(field)& x) -> auto` must be defined for the field's type
     // or the generated code will not compile.
     k_unFieldFlags_Reset        =   2,
+    // #not_owning: if the field is a pointer then mark it as a not owning reference
+    // so it's not needed to Reset() it.
+    k_unFieldFlags_Not_Owning   =   4,
 };
 
 enum Table_Flags : unsigned {
@@ -31,6 +34,7 @@ enum Table_Flags : unsigned {
 struct Field_Type {
     String base;
     unsigned count;
+    bool is_pointer;
 };
 
 struct Field_Definition {
@@ -54,6 +58,16 @@ struct Table_Definition {
     Vector<Constant> constants;
 };
 
+struct Type_Alias {
+    String name;
+    Field_Type type;
+};
+
+struct Top {
+    Vector<Table_Definition> table_defs;
+    Vector<Type_Alias> type_aliases;
+};
+
 struct Paths {
     String input;
     String outputHeader, outputSer;
@@ -63,6 +77,7 @@ enum Token_Kind {
     k_unToken_EOF,
     k_unToken_Unknown,
     k_unToken_Table,
+    k_unToken_Alias,
     k_unToken_Curly_Open,
     k_unToken_Curly_Close,
     k_unToken_Square_Open,

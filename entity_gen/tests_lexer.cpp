@@ -116,3 +116,46 @@ TEST_CASE("Array type", "[lexer]") {
     REQUIRE_TOKEN_EXACT(Curly_Close, "}");
     REQUIRE_TOKEN_EOF();
 }
+
+TEST_CASE("Alias", "[lexer]") {
+    auto pSource = "alias real32 : float;";
+    auto const tokens = Tokenize(pSource, strlen(pSource));
+    auto it = Token_Stream_Iterator(tokens);
+
+    REQUIRE_TOKEN_EXACT(Alias, "alias");
+    REQUIRE_TOKEN_EXACT(Unknown, "real32");
+    REQUIRE_TOKEN_EXACT(Colon, ":");
+    REQUIRE_TOKEN_EXACT(Unknown, "float");
+    REQUIRE_TOKEN_EXACT(Semicolon, ";");
+    REQUIRE_TOKEN_EOF();
+}
+
+TEST_CASE("Alias shorthand (forward declaration)", "[lexer]") {
+    auto pSource = "alias b2Fixture;";
+    auto const tokens = Tokenize(pSource, strlen(pSource));
+    auto it = Token_Stream_Iterator(tokens);
+
+    REQUIRE_TOKEN_EXACT(Alias, "alias");
+    REQUIRE_TOKEN_EXACT(Unknown, "b2Fixture");
+    REQUIRE_TOKEN_EXACT(Semicolon, ";");
+    REQUIRE_TOKEN_EOF();
+}
+
+TEST_CASE("Pointer field", "[lexer]") {
+    auto pSource = "table Test {\
+                        field : b2Fixture*;\
+                    }";
+    auto const tokens = Tokenize(pSource, strlen(pSource));
+    auto it = Token_Stream_Iterator(tokens);
+
+    REQUIRE_TOKEN_EXACT(Table, "table");
+    REQUIRE_TOKEN_EXACT(Unknown, "Test");
+    REQUIRE_TOKEN_EXACT(Curly_Open, "{");
+    REQUIRE_TOKEN_EXACT(Unknown, "field");
+    REQUIRE_TOKEN_EXACT(Colon, ":");
+    REQUIRE_TOKEN_EXACT(Unknown, "b2Fixture");
+    REQUIRE_TOKEN_EXACT(Unknown, "*");
+    REQUIRE_TOKEN_EXACT(Semicolon, ";");
+    REQUIRE_TOKEN_EXACT(Curly_Close, "}");
+    REQUIRE_TOKEN_EOF();
+}

@@ -7,6 +7,8 @@
 #include "common.h"
 #include "lexer.h"
 
+#include <chrono>
+
 static bool IsIdentifierChar(char chCur) {
     return ((chCur >= 'a' && chCur <= 'z') ||
         (chCur >= 'A' && chCur <= 'Z') ||
@@ -18,6 +20,9 @@ static bool IsIdentifierChar(char chCur) {
 #define TOKENIZER_BUFFER_SIZE (256)
 
 Vector<Token> Tokenize(char const* pszFile, size_t unLength) {
+    printf("Tokenize start\n");
+    auto const start = std::chrono::high_resolution_clock::now();
+
     Vector<Token> ret;
     char pchBuffer[TOKENIZER_BUFFER_SIZE];
     size_t iBuffer = 0;
@@ -36,6 +41,8 @@ Vector<Token> Tokenize(char const* pszFile, size_t unLength) {
                 t.string = String(pchBuffer);
                 if (t.string == "table") {
                     t.kind = k_unToken_Table;
+                } else if(t.string == "alias") {
+                    t.kind = k_unToken_Alias;
                 } else {
                     t.kind = k_unToken_Unknown;
                 }
@@ -53,11 +60,13 @@ Vector<Token> Tokenize(char const* pszFile, size_t unLength) {
                 case '}': ret.push_back({ k_unToken_Curly_Close, "}", uiLine, uiCol }); break;
                 case '[': ret.push_back({ k_unToken_Square_Open, "[", uiLine, uiCol }); break;
                 case ']': ret.push_back({ k_unToken_Square_Close, "]", uiLine, uiCol }); break;
+                case '*': ret.push_back({ k_unToken_Unknown, "*", uiLine, uiCol }); break;
                 }
             }
         } else {
             switch (chCur) {
             case ' ': break;
+            case '\t': break;
             case '\n': uiLine++; uiCol = 0; break;
             case '\r': break;
             case ':': ret.push_back({ k_unToken_Colon, ":", uiLine, uiCol }); break;
@@ -67,6 +76,7 @@ Vector<Token> Tokenize(char const* pszFile, size_t unLength) {
             case '}': ret.push_back({ k_unToken_Curly_Close, "}", uiLine, uiCol }); break;
             case '[': ret.push_back({ k_unToken_Square_Open, "[", uiLine, uiCol }); break;
             case ']': ret.push_back({ k_unToken_Square_Close, "]", uiLine, uiCol }); break;
+            case '*': ret.push_back({ k_unToken_Unknown, "*", uiLine, uiCol }); break;
             default:
                 uiIdCol = uiCol;
                 bInIdentifier = true;
@@ -78,6 +88,9 @@ Vector<Token> Tokenize(char const* pszFile, size_t unLength) {
 
         uiCol++;
     }
+
+    auto const end = std::chrono::high_resolution_clock::now();
+    printf("Tokenize took %f ms\n", std::chrono::duration<float, std::milli>(end - start).count());
 
     return ret;
 }

@@ -22,9 +22,26 @@ static void WriteHeaderInclude(IOutput* out, String const& pszFile) {
 
 #define EMIT_INCLUDE(file) WriteHeaderInclude(out, file)
 
-static String FieldToCField(Field_Definition const& field) {
+static String FieldToCField(Table_Definition const& table, Field_Definition const& field) {
     String ret = field.type.base;
+
+    if (field.type.is_pointer) {
+        if (field.type.count == 1) {
+            ret = ret + "* ";
+        } else {
+            fprintf(stderr, "WARNING: field %s::%s marked as pointer but it's redundant since it's an array.\n\
+    If you wanted to create an array of pointers then create an alias and use the alias in the field type specification, i.e.:\n\
+        alias %s_Ptr = *%s;\n\
+    Then define the field in the table:\n\
+        %s : %s_Ptr[%u];\n",
+            table.name.c_str(), field.name.c_str(),
+            field.type.base.c_str(), field.type.base.c_str(),
+            field.name.c_str(), field.type.base.c_str(), field.type.count);
+        }
+    }
+
     ret = ret + ' ' + field.name;
+
     if (field.type.count != 1) {
         ret = ret + '[' + std::to_string(field.type.count) + ']';
     }
@@ -32,8 +49,41 @@ static String FieldToCField(Field_Definition const& field) {
     return ret;
 }
 
+static String AliasToCAlias(Type_Alias const& alias) {
+    String ret = "using " + alias.name + " = " + alias.type.base;
 
-void GenerateHeaderFile(IOutput* out, Vector<Table_Definition> const& tables) {
+    if (alias.name != alias.type.base) {
+        // Plain typedef
+        if (alias.type.is_pointer) {
+            if (alias.type.count == 1) {
+                ret = ret + "* ";
+            } else {
+                // TOOD(danielm): terrible message
+                fprintf(stderr, "WARNING: alias %s marked as pointer, but that's redundant since it's also an array.\n\
+    If you wanted to create an alias of an array of pointers type then create an other alias and use that alias in the original one, i.e.\n\
+        alias %s_Ptr = *%s;\n\
+    Then define the alias as such:\n\
+        alias %s : %s_Ptr[%u]\n",
+                    alias.name.c_str(), alias.type.base.c_str(), alias.type.base.c_str(), alias.name.c_str(), alias.type.base.c_str(), alias.type.count);
+            }
+        }
+
+        if (alias.type.count != 1) {
+            ret = ret + '[' + std::to_string(alias.type.count) + ']';
+        }
+    } else {
+        // Forward declaration
+        ret = "struct " + alias.name;
+    }
+
+    return ret;
+}
+
+#define FIELD_NEEDS_RESET(flags) ((flags & k_unFieldFlags_Reset) != 0 && (flags & k_unFieldFlags_Not_Owning) == 0)
+
+void GenerateHeaderFile(IOutput* out, Top const& top) {
+    auto& tables = top.table_defs;
+
     assert(out != NULL);
     char const* apszIncludes[] = { "<cstdint>", "<vector>", "<unordered_map>", "<optional>",
         "<variant>", "<utils/linear_math.h>", "\"textures.h\"", "\"animator.h\"", "\"entity_gen.h\"" };
@@ -41,6 +91,12 @@ void GenerateHeaderFile(IOutput* out, Vector<Table_Definition> const& tables) {
     out->Printf(gpszHeader);
     out->Printf("#pragma once\n");
     for (size_t i = 0; i < unIncludesCount; i++) EMIT_INCLUDE(apszIncludes[i]);
+    out->Printf("\n");
+
+    // Emit typedefs
+    for (auto& alias : top.type_aliases) {
+        out->Printf("%s;\n", AliasToCAlias(alias).c_str());
+    }
     out->Printf("\n");
 
     for (auto& table : tables) {
@@ -52,14 +108,14 @@ void GenerateHeaderFile(IOutput* out, Vector<Table_Definition> const& tables) {
         out->Printf("struct %s {\n", table.name.c_str());
         bool bHasTempField = false;
         for (auto& field : table.fields) {
-            out->Printf("    %s;\n", FieldToCField(field).c_str());
-            bHasTempField |= (field.flags & k_unFieldFlags_Reset) != 0;
+            out->Printf("    %s;\n", FieldToCField(table, field).c_str());
+            bHasTempField |= FIELD_NEEDS_RESET(field.flags);
         }
 
         if (bHasTempField) {
             out->Printf("    void ResetTransients() {\n");
             for (auto& field : table.fields) {
-                if ((field.flags & k_unFieldFlags_Reset) != 0) {
+                if (FIELD_NEEDS_RESET(field.flags)) {
                     out->Printf("        Reset(%s);\n", field.name.c_str());
                 }
             }
@@ -170,13 +226,17 @@ static uint64_t GetFieldKey(Field_Definition const& field) {
     return MeowU64From(MeowHash(MeowDefaultSeed, field.name.size(), (void*)field.name.c_str()), 0);
 }
 
-static void DefineSerializationConstants(IOutput* out, Vector<Table_Definition> const& tables) {
-    uint16_t chunkId = 1;
+static uint64_t GetChunkIdValue(Table_Definition const& table) {
+    return MeowU64From(MeowHash(MeowDefaultSeed, table.name.size(), (void*)table.name.c_str()), 0);
+}
+
+static void DefineSerializationConstants(IOutput* out, Top const& top) {
+    auto& tables = top.table_defs;
     for (auto& table : tables) {
         if ((table.flags & k_unTableFlags_Memory_Only) == 0) {
             auto const tableCapital = GetChunkIdConstant(table);
             out->Printf("// Serialization constants for table %s\n", table.name.c_str());
-            out->Printf("#define %s (%d)\n", tableCapital.c_str(), chunkId++);
+            out->Printf("#define %s (0x%" PRIx64 ")\n", tableCapital.c_str(), GetChunkIdValue(table));
             for (auto& field : table.fields) {
                 auto const keyName = GetKeyConstant(table, field);
                 out->Printf("#define %s (0x%" PRIx64 ")\n", keyName.c_str(), GetFieldKey(field));
@@ -186,7 +246,22 @@ static void DefineSerializationConstants(IOutput* out, Vector<Table_Definition> 
     }
 }
 
-static void EmitSaveLevel(IOutput* out, Vector<Table_Definition> const& tables) {
+#define FIELD_IS_SERIALIZABLE(field) ((field.flags & k_unFieldFlags_Memory_Only) == 0)
+
+static unsigned CountFieldsToBeSerialized(Table_Definition const& table) {
+    unsigned ret = 0;
+
+    for (auto& field : table.fields) {
+        if (FIELD_IS_SERIALIZABLE(field)) {
+            ret++;
+        }
+    }
+
+    return ret;
+}
+
+static void EmitSaveLevel(IOutput* out, Top const& top) {
+    auto& tables = top.table_defs;
     out->Printf(gpszSaveLevelHeader);
 
     // Entity table is special
@@ -194,7 +269,7 @@ static void EmitSaveLevel(IOutput* out, Vector<Table_Definition> const& tables) 
         if (table.name == "Entity") {
             out->Printf(gpszEntityWriteHeader);
             for (auto& field : table.fields) {
-                if ((field.flags & k_unFieldFlags_Memory_Only) == 0) {
+                if (FIELD_IS_SERIALIZABLE(field)) {
                     out->Printf(TAB3 "Write(hFile, ent.%s);\n", field.name.c_str());
                 }
             }
@@ -213,9 +288,9 @@ static void EmitSaveLevel(IOutput* out, Vector<Table_Definition> const& tables) 
                 table.var_name.c_str());
             out->Printf(TAB3 "Write(hFile, kv.first);\n");
 
-            out->Printf(TAB3 "Write(hFile, (uint32_t)0x%" PRIx32 ");\n", table.fields.size());
+            out->Printf(TAB3 "Write(hFile, (uint32_t)0x%" PRIx32 ");\n", CountFieldsToBeSerialized(table));
             for (auto& field : table.fields) {
-                if ((field.flags & k_unFieldFlags_Memory_Only) == 0) {
+                if (FIELD_IS_SERIALIZABLE(field)) {
                     out->Printf(TAB3 "Write(hFile, (uint64_t)%s);\n", GetKeyConstant(table, field).c_str());
                     if (field.type.count == 1) {
                         out->Printf(TAB3 "Write(hFile, kv.second.%s);\n", field.name.c_str());
@@ -233,7 +308,8 @@ static void EmitSaveLevel(IOutput* out, Vector<Table_Definition> const& tables) 
     out->Printf(gpszSaveLevelFooter);
 }
 
-static void EmitLoadLevel(IOutput* out, Vector<Table_Definition> const& tables) {
+static void EmitLoadLevel(IOutput* out, Top const& top) {
+    auto& tables = top.table_defs;
     out->Printf(gpszLoadLevelHeader);
 
     // Entity table is special
@@ -251,7 +327,8 @@ static void EmitLoadLevel(IOutput* out, Vector<Table_Definition> const& tables) 
     }
 
     out->Printf(TAB2 "while (!feof(hFile)) {\n");
-    out->Printf(TAB3 "uint16_t uiChunkId, unCount;\n");
+    out->Printf(TAB3 "uint64_t uiChunkId;\n");
+    out->Printf(TAB3 "uint16_t unCount;\n");
     out->Printf(TAB3 "Entity_ID iEnt;\n");
     out->Printf(TAB3 "fread(&uiChunkId, sizeof(uiChunkId), 1, hFile);\n");
     out->Printf(TAB3 "fread(&unCount, sizeof(unCount), 1, hFile);\n");
@@ -297,7 +374,7 @@ static void EmitLoadLevel(IOutput* out, Vector<Table_Definition> const& tables) 
     out->Printf(gpszLoadLevelFooter);
 }
 
-void GenerateSerializationCode(IOutput* out, String const& pszGameName, Vector<Table_Definition> const& tables) {
+void GenerateSerializationCode(IOutput* out, String const& pszGameName, Top const& top) {
     out->Printf(gpszHeader);
     out->Printf("#define SERIALIZATION_CPP\n");
     EMIT_INCLUDE('\"' + pszGameName + ".h\"");
@@ -305,7 +382,7 @@ void GenerateSerializationCode(IOutput* out, String const& pszGameName, Vector<T
     EMIT_INCLUDE("<inttypes.h>");
     out->Printf("\n");
 
-    DefineSerializationConstants(out, tables);
-    EmitSaveLevel(out, tables);
-    EmitLoadLevel(out, tables);
+    DefineSerializationConstants(out, top);
+    EmitSaveLevel(out, top);
+    EmitLoadLevel(out, top);
 }
