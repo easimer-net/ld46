@@ -1,3 +1,6 @@
+alias b2Fixture;
+alias b2Body;
+
 table Entity {
 #memory_only
     bUsed: bool;
@@ -5,10 +8,28 @@ table Entity {
     position: vec4;
     size: vec4;
     flRotation: float;
+    bHasCollider: bool;
 
 #memory_only
 #reset
     hSprite : Shared_Sprite;
+}
+
+table Phys_Static {
+#not_owning
+    body: *b2Body;
+#not_owning
+    fixture: *b2Fixture;
+}
+
+table Phys_Dynamic {
+    density : float;
+    friction : float;
+
+#not_owning
+    body: *b2Body;
+#not_owning
+    fixture: *b2Fixture;
 }
 
 table Living living {

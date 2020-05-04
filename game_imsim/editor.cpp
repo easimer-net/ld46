@@ -254,9 +254,12 @@ public:
                 ImGui::InputFloat2("Position", ent.position.m_flValues);
                 ImGui::InputFloat2("Size", ent.size.m_flValues);
                 ImGui::InputFloat("Rotation", &ent.flRotation);
+                ImGui::Checkbox("Has collider", &ent.bHasCollider);
                 EditLiving(iEnt);
                 EditStaticProp(iEnt);
                 EditClosedDoor(iEnt);
+                EditPhysStatic(iEnt);
+                EditPhysDynamic(iEnt);
                 EditKey(iEnt);
 
                 if (bDelete) {
@@ -351,6 +354,38 @@ public:
             }
         } else {
             if (ImGui::Button("Make Key")) {
+                set[iEnt] = {};
+            }
+        }
+    }
+
+    void EditPhysStatic(Entity_ID iEnt) {
+        auto& set = m_pCommon->aInitialGameData.phys_statics;
+        auto& ent = m_pCommon->aInitialGameData.entities[iEnt];
+        if (set.count(iEnt)) {
+            auto& data = set[iEnt];
+            ImGui::Separator();
+            ImGui::Text("Phys_Static");
+        } else {
+            if (ImGui::Button("Make physical (static)")) {
+                set[iEnt] = {};
+            }
+        }
+    }
+
+    void EditPhysDynamic(Entity_ID iEnt) {
+        auto& set = m_pCommon->aInitialGameData.phys_dynamics;
+        auto& ent = m_pCommon->aInitialGameData.entities[iEnt];
+        if (set.count(iEnt)) {
+            auto& data = set[iEnt];
+            ImGui::Separator();
+            ImGui::Text("Phys_Dynamic");
+            ImGui::InputFloat("Density", &data.density);
+            ImGui::InputFloat("Friction", &data.density);
+            double const flMass = (((double)data.density) * ent.size[0]) * ent.size[1];
+            ImGui::Text("Mass: %f", flMass);
+        } else {
+            if (ImGui::Button("Make physical (dynamic)")) {
                 set[iEnt] = {};
             }
         }

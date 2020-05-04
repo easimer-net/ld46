@@ -298,6 +298,7 @@ public:
             game_data.entities[ret].position = spawnData.position;
             game_data.entities[ret].size = spawnData.size;
             game_data.entities[ret].hSprite = Shared_Sprite("data/ranged_idle_se_001.png");
+            game_data.entities[ret].bHasCollider = true;
 
             game_data.living[ret] = {
                 PLAYER_MAX_HEALTH,
@@ -305,6 +306,9 @@ public:
             };
 
             game_data.players[ret] = {};
+
+            game_data.phys_dynamics[ret] = { 1.0, 0.3f };
+
             /*
             game_data.animated[ret] = {
                 m_hAnimPlayer,
@@ -358,6 +362,9 @@ public:
         DbgLine(p0[0], p0[1], p1[0], p1[1]);
     }
 
+    void PhysicsLogic(float const flDelta, Game_Data& aGameData) {
+    }
+
     // Player logic
     void PlayerLogic(float flDelta, Game_Data& aGameData) {
         // Apply movement input, set sprite
@@ -372,7 +379,6 @@ public:
             auto& ent = aGameData.entities[iPlayer];
             auto& player = kvPlayer.second;
             auto& pos = ent.position;
-            auto vNewPos = pos;
             float flCurrentSpeed = PLAYER_SPEED;
             auto const vLookDir = lm::Normalized(m_pCommon->vCursorWorldPos - pos);
             ent.flRotation = atan2f(vLookDir[1], vLookDir[0]);
@@ -383,8 +389,10 @@ public:
             auto const vDist = pos - m_pCommon->vCameraPosition;
             m_pCommon->vCameraPosition = m_pCommon->vCameraPosition + flDelta * vDist;
 
-            vNewPos = vNewPos + flCurrentSpeed * flDelta * vPlayerMoveDir;
+            auto const vMove = flCurrentSpeed * flDelta * vPlayerMoveDir;
 
+            /*
+            // NOTE(danielm): old collision code, only checks against the world geometry
             Collision_World cw;
             Collision_AABB_Entity bb;
             auto vHalfSize = ent.size / 2;
@@ -394,6 +402,15 @@ public:
             if (CheckCollisions(m_pCommon->aLevelGeometry, cw).size() == 0) {
                 pos = vNewPos;
             }
+            */
+
+            auto const vMovePos = ent.position + vMove;
+
+            Collision_AABB bb;
+            auto vHalfSize = ent.size / 2;
+            bb.min = vMovePos - vHalfSize;
+            bb.max = vMovePos + vHalfSize;
+            lm::Vector4 proj;
 
             if (m_bPlayerUse) {
                 Set<Entity_ID> doorsToOpen;
@@ -430,9 +447,30 @@ public:
         }
     }
 
+    void CollectAllColliders(Game_Data const& aGameData) {
+        m_colliders.clear();
+
+        for(uint32_t i = 0; i < aGameData.entities.size(); i++) {
+            auto& ent = aGameData.entities[i];
+            if (ent.bUsed) {
+                if (ent.bHasCollider) {
+                    Collision_AABB_Entity bb;
+                    auto vHalfSize = ent.size / 2;
+                    bb.id = i;
+                    bb.min = ent.position - vHalfSize;
+                    bb.max = ent.position + vHalfSize;
+                    m_colliders.push_back(bb);
+                }
+            }
+        }
+    }
+
     void MainLogic(float flDelta) {
         auto& dq = m_dq;
         auto& aGameData = m_pCommon->aGameData;
+        CollectAllColliders(aGameData);
+
+        PhysicsLogic(flDelta, aGameData);
 
         PlayerLogic(flDelta, aGameData);
 
@@ -571,9 +609,11 @@ private:
     Common_Data* m_pCommon;
     Animation_Collection m_hAnimPlayer;
     dq::Draw_Queue m_dq;
-    unsigned m_unPlayerMoveDir;
     char m_pszConBuf[CONSOLE_BUFFER_SIZ];
 
+    std::vector<Collision_AABB_Entity> m_colliders;
+
+    unsigned m_unPlayerMoveDir;
     bool m_bPlayerUse;
     bool m_bPlayerJump;
     bool m_bPlayerPrimaryAttack;
