@@ -19,6 +19,7 @@
 #include "tools.h"
 #include <functional>
 #include <unordered_set>
+#include <box2d/box2d.h>
 
 template<typename T>
 using Set = std::unordered_set<T>;
@@ -120,7 +121,8 @@ public:
         m_bPlayerSecondaryAttack(false),
         m_hAnimPlayer(NULL),
         m_unPlayerMoveDir(0),
-        m_pszConBuf{0}
+        m_pszConBuf{0},
+        m_physWorld({ 0, -10 })
     {
         m_pCommon->aGameData = m_pCommon->aInitialGameData;
 
@@ -147,6 +149,39 @@ public:
             snprintf(pszPath, 15, "data/key%d.png", key.eType);
             ent.hSprite = Shared_Sprite(pszPath);
         }
+
+        // Physics objects
+        for (auto& kvPhys : m_pCommon->aGameData.phys_statics) {
+            auto& phys = kvPhys.second;
+            auto& ent = m_pCommon->aGameData.entities[kvPhys.first];
+            b2BodyDef bodyDef;
+            b2PolygonShape shape;
+            bodyDef.position.Set(ent.position[0], ent.position[1]);
+            shape.SetAsBox(ent.size[0] / 2, ent.size[1] / 2);
+            // TODO(danielm): for static stuff we don't need a body-fixture pair
+            // for every entity; we could just create a single body ("the world")
+            // and attach the per-entity fixtures to that
+            phys.body = m_physWorld.CreateBody(&bodyDef);
+            phys.fixture = phys.body->CreateFixture(&shape, 0.0f);
+        }
+        for (auto& kvPhys : m_pCommon->aGameData.phys_dynamics) {
+            auto& phys = kvPhys.second;
+            auto& ent = m_pCommon->aGameData.entities[kvPhys.first];
+            b2BodyDef bodyDef;
+            b2PolygonShape shape;
+            b2FixtureDef fixtureDef;
+            bodyDef.type = b2_dynamicBody;
+            bodyDef.position.Set(ent.position[0], ent.position[1]);
+            shape.SetAsBox(ent.size[0] / 2, ent.size[1] / 2);
+            // TODO(danielm): for static stuff we don't need a body-fixture pair
+            // for every entity; we could just create a single body ("the world")
+            // and attach the per-entity fixtures to that
+            phys.body = m_physWorld.CreateBody(&bodyDef);
+            fixtureDef.shape = &shape;
+            fixtureDef.density = phys.density;
+            fixtureDef.friction = phys.friction;
+            phys.fixture = phys.body->CreateFixture(&fixtureDef);
+        }
     }
 
     virtual Application_Result Release() override {
@@ -159,6 +194,8 @@ public:
     }
 
     virtual Application_Result OnPreFrame(float flDelta) override {
+        m_physWorld.Step(flDelta, 6, 2);
+
         MainLogic(flDelta);
         return k_nApplication_Result_OK;
     }
@@ -279,6 +316,13 @@ public:
 
     // Delete an entity
     void DeleteEntity(Entity_ID id) {
+        auto& aGameData = m_pCommon->aGameData;
+        if (aGameData.phys_statics.count(id)) {
+            // TODO(danielm): remove body, fixture, etc.
+        }
+        if (aGameData.phys_dynamics.count(id)) {
+            // TODO(danielm): remove body, fixture, etc.
+        }
         m_pCommon->aGameData.DeleteEntity(id);
     }
 
@@ -363,6 +407,17 @@ public:
     }
 
     void PhysicsLogic(float const flDelta, Game_Data& aGameData) {
+        for (auto& kvPhys : aGameData.phys_dynamics) {
+            auto iEnt = kvPhys.first;
+            auto& phys = kvPhys.second;
+            auto& ent = aGameData.entities[iEnt];
+
+            assert(phys.body != NULL);
+            auto physPos = phys.body->GetPosition();
+            auto physRot = phys.body->GetAngle();
+            ent.position = { physPos.x, physPos.y };
+            ent.flRotation = physRot;
+        }
     }
 
     // Player logic
@@ -618,6 +673,8 @@ private:
     bool m_bPlayerJump;
     bool m_bPlayerPrimaryAttack;
     bool m_bPlayerSecondaryAttack;
+
+    b2World m_physWorld;
 };
 
 extern IApplication* StartGame(Common_Data* pCommon) {
