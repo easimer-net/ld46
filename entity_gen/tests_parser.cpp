@@ -297,3 +297,17 @@ TEST_CASE("Member function", "[parser]") {
     REQUIRE(table.member_functions.size() == 1);
     REQUIRE(table.member_functions[0] == member_func_sig);
 }
+
+TEST_CASE("Interface table", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Interface), TOKU("Test"), TOK(Curly_Open),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+
+    REQUIRE(top.table_defs.size() == 1);
+    auto& table = top.table_defs[0];
+    REQUIRE(table.flags & k_unTableFlags_Interface);
+}

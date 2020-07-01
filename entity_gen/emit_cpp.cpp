@@ -99,6 +99,8 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     }
     out->Printf("\n");
 
+    out->Printf("struct Game_Data;\n");
+
     // Emit typedefs
     for (auto& alias : top.type_aliases) {
         out->Printf("%s;\n", AliasToCAlias(alias).c_str());
@@ -116,12 +118,16 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
         } else {
             out->Printf("struct %s {\n", table.name.c_str());
         }
+
+        // Generate field declarations and in the meantime determine if there
+        // is a need for a ResetTransients() function to be defined
         bool bHasTempField = false;
         for (auto& field : table.fields) {
             out->Printf("    %s;\n", FieldToCField(table, field).c_str());
             bHasTempField |= FIELD_NEEDS_RESET(field.flags);
         }
 
+        // Generate the function that resets memory_only fields
         if (bHasTempField) {
             out->Printf("    void ResetTransients() {\n");
             for (auto& field : table.fields) {
@@ -132,8 +138,15 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
             out->Printf("    }\n");
         }
 
+        // Declare member functions
         for (auto& member_fun : table.member_functions) {
             out->Printf("    %s;\n", member_fun.c_str());
+        }
+
+        out->Printf("\n    Entity_ID self_id;\n");
+
+        if (table.flags & k_unTableFlags_Needs_Reference_To_Game_Data) {
+            out->Printf("    Game_Data* game_data;\n");
         }
 
         out->Printf("};\n\n");
@@ -142,14 +155,14 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     out->Printf("struct Game_Data { \n    TABLE_COLLECTION();\n    Vector<Entity> entities;\n");
 
     for (auto& table : tables) {
-        if (table.name != "Entity") {
+        if (table.name != "Entity" && (table.flags & k_unTableFlags_Interface) == 0) {
             out->Printf("    ADD_TABLE(%s, %s);\n", table.var_name.c_str(), table.name.c_str());
         }
     }
 
     out->Printf(TAB "void Clear() { \n");
     for (auto& table : tables) {
-        if (table.name != "Entity") {
+        if (table.name != "Entity" && (table.flags & k_unTableFlags_Interface) == 0) {
             out->Printf(TAB2 "%s.clear();\n", table.var_name.c_str());
         } else {
             out->Printf(TAB2 "entities.clear();\n");
@@ -160,12 +173,30 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     out->Printf(TAB "void DeleteEntity(Entity_ID i) {\n");
     out->Printf(TAB2 "assert(i < entities.size());\n");
     for (auto& table : tables) {
-        if (table.name != "Entity") {
+        if (table.name != "Entity" && (table.flags & k_unTableFlags_Interface) == 0) {
             out->Printf(TAB2 "%s.erase(i);\n", table.var_name.c_str());
         }
     }
     out->Printf(TAB2 "entities[i].bUsed = false;\n");
     out->Printf(TAB "}\n");
+
+    // Define "reflection" routines
+    out->Printf(TAB "template<typename T> Vector<T*> GetInterfaceImplementations(Entity_ID);\n");
+    for (auto& interface : tables) {
+        if (interface.flags & k_unTableFlags_Interface) {
+            auto const T = interface.name.c_str();
+            out->Printf(TAB "template<> Vector<%s*> GetInterfaceImplementations<%s>(Entity_ID i) {\n", T, T);
+            out->Printf(TAB2 "Vector<%s*> ret;\n", T);
+            for (auto& table : tables) {
+                // TODO: this won't work with multiple levels of inheritance
+                if (table.implements_interface.has_value() && table.implements_interface.value() == interface.name) {
+                    out->Printf(TAB2 "if(%s.count(i)) ret.push_back(&%s[i]);\n", table.var_name.c_str(), table.var_name.c_str());
+                }
+            }
+            out->Printf(TAB2 "return ret;\n");
+            out->Printf(TAB "}\n");
+        }
+    }
 
     out->Printf("};\n");
 }
@@ -293,7 +324,7 @@ static void EmitSaveLevel(IOutput* out, Top const& top) {
     }
 
     for (auto& table : tables) {
-        if ((table.flags & k_unTableFlags_Memory_Only) == 0 && table.name != "Entity") {
+        if ((table.flags & (k_unTableFlags_Memory_Only | k_unTableFlags_Interface)) == 0 && table.name != "Entity") {
             auto const tableCapital = GetChunkIdConstant(table);
             out->Printf(TAB2 "// Dump %s\n", table.var_name.c_str());
             out->Printf(TAB2 "BEGIN_SECTION_WRITE(%s, game_data.%s)\n",
@@ -350,7 +381,7 @@ static void EmitLoadLevel(IOutput* out, Top const& top) {
     out->Printf(TAB4 "Read(hFile, &iEnt);\n");
     out->Printf(TAB4 "switch(uiChunkId) {\n");
     for (auto& table : tables) {
-        if (table.name != "Entity" && (table.flags & k_unTableFlags_Memory_Only) == 0) {
+        if (table.name != "Entity" && (table.flags & (k_unTableFlags_Memory_Only | k_unTableFlags_Interface)) == 0) {
             auto const pszChunkId = GetChunkIdConstant(table);
             out->Printf(TAB4 "case %s:\n", pszChunkId.c_str());
             out->Printf(TAB4 "{\n");
@@ -376,6 +407,10 @@ static void EmitLoadLevel(IOutput* out, Top const& top) {
             out->Printf(TAB6 "default: fprintf(stderr, \"While loading level, chunk %s had an unknown field with key \" PRIx64 \"\\n\", uiKey); break; \n", pszChunkId.c_str());
             out->Printf(TAB6 "}\n");
             out->Printf(TAB5 "}\n");
+            out->Printf(TAB5 "buf.self_id = iEnt;\n");
+            if (table.flags & k_unTableFlags_Needs_Reference_To_Game_Data) {
+                out->Printf("buf.game_data = &aGameData;\n");
+            }
             out->Printf(TAB5 "aGameData.%s[iEnt] = buf;\n", table.var_name.c_str());
             out->Printf(TAB5 "break;\n");
             out->Printf(TAB4 "}\n");

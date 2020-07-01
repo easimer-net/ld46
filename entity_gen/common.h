@@ -16,21 +16,36 @@ template<typename T> using Optional = std::optional<T>;
 
 enum Field_Flags : unsigned {
     k_unFieldFlags_None         =   0,
+
     // #memory_only: the field will not be present in a binary file
     k_unFieldFlags_Memory_Only  =   1,
+
     // #reset: this field will be reset on game load.
     // The function `Reset(decltype(field)& x) -> auto` must be defined for the field's type
     // or the generated code will not compile.
     k_unFieldFlags_Reset        =   2,
+
     // #not_owning: if the field is a pointer then mark it as a not owning reference
     // so it's not needed to Reset() it.
     k_unFieldFlags_Not_Owning   =   4,
 };
 
 enum Table_Flags : unsigned {
-    k_unTableFlags_None         =   0,
+    k_unTableFlags_None                         =   0,
+
     // #memory_only: the table will not be present in a binary file
-    k_unTableFlags_Memory_Only  =   1,
+    k_unTableFlags_Memory_Only                  =   1,
+
+    // #needs_reference_to_game_data: the table will contain a game_data
+    // field that points to the Game_Data structure containing the table itself.
+    // Most useful when a table implements an interface and one or more of the
+    // member functions need to access other entities.
+    k_unTableFlags_Needs_Reference_To_Game_Data =   2,
+
+    // (not an attribute): this table is an interface and will not
+    // exist as an actual table.
+    // Interfaces can't contain fields, only member functions.
+    k_unTableFlags_Interface                    =   4,
 };
 
 struct Field_Type {
@@ -82,6 +97,7 @@ enum Token_Kind {
     k_unToken_EOF,
     k_unToken_Unknown,
     k_unToken_Table,
+    k_unToken_Interface,
     k_unToken_Alias,
     k_unToken_Include,
     k_unToken_Member_Function,

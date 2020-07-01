@@ -111,6 +111,42 @@ static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
 }
 
+class ContactListener : public b2ContactListener {
+public:
+    ContactListener(Game_Data* gd) : gd(gd) {}
+private:
+    Game_Data* gd;
+
+    void BeginContact(b2Contact* c) override {
+        auto const a = (Entity_ID)c->GetFixtureA()->GetBody()->GetUserData();
+        auto const b = (Entity_ID)c->GetFixtureB()->GetBody()->GetUserData();
+
+        printf("Entities %zu and %zu began contact\n", a, b);
+
+        for (auto& handler : gd->GetInterfaceImplementations<Collision_Handler>(a)) {
+            handler->BeginContact(c, a, b);
+        }
+
+        for (auto& handler : gd->GetInterfaceImplementations<Collision_Handler>(b)) {
+            handler->BeginContact(c, b, a);
+        }
+    }
+    void EndContact(b2Contact* c) override {
+        auto const a = (Entity_ID)c->GetFixtureA()->GetBody()->GetUserData();
+        auto const b = (Entity_ID)c->GetFixtureB()->GetBody()->GetUserData();
+
+        printf("Entities %zu and %zu ended contact\n", a, b);
+
+        for (auto& handler : gd->GetInterfaceImplementations<Collision_Handler>(a)) {
+            handler->EndContact(c, a, b);
+        }
+
+        for (auto& handler : gd->GetInterfaceImplementations<Collision_Handler>(b)) {
+            handler->EndContact(c, b, a);
+        }
+    }
+};
+
 class Game : public IApplication {
 public:
     Game(Common_Data* pCommon)
@@ -122,13 +158,16 @@ public:
         m_hAnimPlayer(NULL),
         m_unPlayerMoveDir(0),
         m_pszConBuf{0},
-        m_physWorld({ 0, -10 })
+        m_physWorld({ 0, -10 }),
+        m_contact_listener(&pCommon->aGameData)
     {
         m_pCommon->aGameData = m_pCommon->aInitialGameData;
 
         for (auto& ent : m_pCommon->aGameData.entities) {
             ent.ResetTransients();
         }
+
+        m_physWorld.SetContactListener(&m_contact_listener);
 
         CreatePlayer();
 
@@ -162,6 +201,7 @@ public:
             // for every entity; we could just create a single body ("the world")
             // and attach the per-entity fixtures to that
             phys.body = m_physWorld.CreateBody(&bodyDef);
+            phys.body->SetUserData((void*)kvPhys.first);
             phys.fixture = phys.body->CreateFixture(&shape, 0.0f);
         }
         for (auto& kvPhys : m_pCommon->aGameData.phys_dynamics) {
@@ -173,10 +213,8 @@ public:
             bodyDef.type = b2_dynamicBody;
             bodyDef.position.Set(ent.position[0], ent.position[1]);
             shape.SetAsBox(ent.size[0] / 2, ent.size[1] / 2);
-            // TODO(danielm): for static stuff we don't need a body-fixture pair
-            // for every entity; we could just create a single body ("the world")
-            // and attach the per-entity fixtures to that
             phys.body = m_physWorld.CreateBody(&bodyDef);
+            phys.body->SetUserData((void*)kvPhys.first);
             fixtureDef.shape = &shape;
             fixtureDef.density = phys.density;
             fixtureDef.friction = phys.friction;
@@ -678,6 +716,7 @@ private:
     bool m_bPlayerSecondaryAttack;
 
     b2World m_physWorld;
+    ContactListener m_contact_listener;
 };
 
 extern IApplication* StartGame(Common_Data* pCommon) {

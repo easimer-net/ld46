@@ -59,6 +59,8 @@ Vector<Token> Tokenize(char const* pszFile, size_t unLength) {
                         t.kind = k_unToken_Alias;
                     } else if (t.string == "include") {
                         t.kind = k_unToken_Include;
+                    } else if (t.string == "interface") {
+                        t.kind = k_unToken_Interface;
                     } else if(t.string == "member_function") {
                         t.kind = k_unToken_Member_Function;
                     } else {

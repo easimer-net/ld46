@@ -2,6 +2,12 @@ include 'box2d/box2d.h'
 
 alias b2Fixture;
 alias b2Body;
+alias b2ContactListener;
+
+interface Collision_Handler {
+    member_function 'virtual void BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) = 0';
+    member_function 'virtual void EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) = 0';
+}
 
 table Entity {
 #memory_only
@@ -44,12 +50,13 @@ table Corpse {
     flTimeSinceDeath: float;
 }
 
-#implements_interface(b2ContactListener)
+#needs_reference_to_game_data
+#implements_interface(Collision_Handler)
 table Player {
     bKeys : bool[3];
 
-    member_function 'void BeginContact(b2Contact*) override';
-    member_function 'void EndContact(b2Contact*) override';
+    member_function 'void BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
+    member_function 'void EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
 }
 
 table Static_Prop {

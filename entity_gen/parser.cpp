@@ -28,6 +28,7 @@ static String_Set gValidAttributes = {
     "memory_only", "reset",
     "not_owning",
     "implements_interface",
+    "needs_reference_to_game_data",
 };
 
 static String_Set gAttributesWithRequiredParameter = {
@@ -38,6 +39,7 @@ static String_Set gAttributesWithoutParameter = {
     "memory_only",
     "reset",
     "not_owning",
+    "needs_reference_to_game_data",
 };
 
 static bool OnlyHasDigits(String const& s) {
@@ -122,6 +124,36 @@ static bool SyntaxCheckMemberFunction(Token_Stream_Iterator& it) {
     it++;
 
     return true;
+}
+
+static bool SyntaxCheckInterface(Token_Stream_Iterator& it) {
+    bool bRet = true;
+
+    EXPECT_TOKEN_TYPE(k_unToken_Interface, "Expected keyword 'interface' at the beginning of an interface declaration, got '%s'");
+    it++;
+
+    EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Interface identifier is missing\n");
+    it++;
+
+    if (it->kind == k_unToken_Unknown) {
+        fprintf(stderr, "Warning: interfaces can't have a var_name\n");
+        it++;
+    }
+
+    EXPECT_TOKEN_TYPE(k_unToken_Curly_Open, "Expected a opening curly brace at the beginning of an interface declaration, got '%s'");
+    it++;
+
+    while (bRet && it->kind != k_unToken_Curly_Close) {
+        EXPECT_TOKEN_TYPE(k_unToken_Member_Function, "Expected member function declaration in interface declaration, got '%s'\n");
+        bRet &= SyntaxCheckMemberFunction(it);
+    }
+
+    if (bRet) {
+        EXPECT_TOKEN_TYPE(k_unToken_Curly_Close, "Expected a closing curly brace after an interface declaration, got '%s'\n");
+        it++;
+    }
+
+    return bRet;
 }
 
 static bool SyntaxCheckTable(Token_Stream_Iterator& it) {
@@ -258,6 +290,9 @@ bool SyntaxCheckTop(Vector<Token> const& tokens) {
         case k_unToken_Table:
             bRet &= SyntaxCheckTable(it);
             break;
+        case k_unToken_Interface:
+            bRet &= SyntaxCheckInterface(it);
+            break;
         case k_unToken_Alias:
             bRet &= SyntaxCheckAlias(it);
             break;
@@ -317,7 +352,7 @@ static Field_Definition ParseField(Token_Stream_Iterator& it) {
             def.flags |= k_unFieldFlags_Reset;
         } else if (it->string == "memory_only") {
             def.flags |= k_unFieldFlags_Memory_Only;
-        } else if(it->string == "not_owning") {
+        } else if (it->string == "not_owning") {
             def.flags |= k_unFieldFlags_Not_Owning;
         } else {
             fprintf(stderr, "Unknown field attribute '%s'\n", it->string.c_str());
@@ -389,6 +424,8 @@ static Attribute ParseAttribute(Token_Stream_Iterator& it) {
     return Attribute { std::move(attribute), std::move(parameter) };
 }
 
+static Table_Definition ParseInterface(Token_Stream_Iterator& it, Table_Definition* base_def = NULL);
+
 static Table_Definition ParseTable(Token_Stream_Iterator& it) {
     Table_Definition def;
 
@@ -399,9 +436,15 @@ static Table_Definition ParseTable(Token_Stream_Iterator& it) {
         } else if (attr.attribute == "implements_interface") {
             assert(attr.parameter.has_value());
             def.implements_interface = std::move(attr.parameter);
+        } else if (attr.attribute == "needs_reference_to_game_data") {
+            def.flags |= k_unTableFlags_Needs_Reference_To_Game_Data;
         } else {
             fprintf(stderr, "Unknown table attribute '%s'\n", it->string.c_str());
         }
+    }
+
+    if (it->kind == k_unToken_Interface) {
+        return ParseInterface(it, &def);
     }
 
     // eat 'table'
@@ -416,6 +459,74 @@ static Table_Definition ParseTable(Token_Stream_Iterator& it) {
     // Optional var_name
     if (it->kind == k_unToken_Unknown) {
         def.var_name = it->string;
+        it++;
+    }
+
+    ASSERT_TOKEN_KIND(k_unToken_Curly_Open);
+    it++;
+
+    while (it->kind != k_unToken_Curly_Close) {
+        switch (it->kind) {
+        case k_unToken_Member_Function:
+        {
+            auto fun = ParseMemberFunction(it);
+            def.member_functions.push_back(std::move(fun));
+            break;
+        }
+        default:
+        {
+            // NOTE: be careful if you extend this switch-case, because a field
+            // can not only begin with an Unknown token but also a Pound!
+            auto field = ParseField(it);
+
+            if (field.type.count != 1) {
+                Constant constant;
+                constant.name = GenerateConstantIdentifier(def, field);
+                constant.value = field.type.count;
+                def.constants.push_back(std::move(constant));
+            }
+
+            def.fields.push_back(std::move(field));
+            break;
+        }
+        }
+    }
+
+    ASSERT_TOKEN_KIND(k_unToken_Curly_Close);
+    it++;
+
+    if (def.var_name.size() == 0) {
+        def.var_name = def.name + 's';
+        ToLower(def.var_name);
+    } else {
+        if (def.name == "Entity") {
+            fprintf(stderr, "Warning: custom var_name on Entity table is ignored\n");
+        }
+    }
+
+    return def;
+}
+
+static Table_Definition ParseInterface(Token_Stream_Iterator& it, Table_Definition* base_def) {
+    Table_Definition def;
+
+    if (base_def != NULL) {
+        def = std::move(*base_def);
+    }
+
+    def.flags |= k_unTableFlags_Interface;
+
+    // eat 'interface'
+    ASSERT_TOKEN_KIND(k_unToken_Interface);
+    it++;
+
+    // table name
+    ASSERT_TOKEN_KIND(k_unToken_Unknown);
+    def.name = it->string;
+    it++;
+
+    // Ignore optional var_name
+    if (it->kind == k_unToken_Unknown) {
         it++;
     }
 
@@ -514,6 +625,9 @@ Top ParseTop(Vector<Token> const& tokens) {
         case k_unToken_Pound:
         case k_unToken_Table:
             ret.table_defs.push_back(ParseTable(it));
+            break;
+        case k_unToken_Interface:
+            ret.table_defs.push_back(ParseInterface(it));
             break;
         case k_unToken_Alias:
             ret.type_aliases.push_back(ParseAlias(it));

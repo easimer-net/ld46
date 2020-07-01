@@ -203,3 +203,16 @@ TEST_CASE("Member function token", "[lexer]") {
     REQUIRE_TOKEN_EXACT(Curly_Close, "}");
     REQUIRE_TOKEN_EOF();
 }
+
+TEST_CASE("Interface declaration", "[lexer]") {
+    auto pSource = "interface Test {\
+                    }";
+    auto const tokens = Tokenize(pSource, strlen(pSource));
+    auto it = Token_Stream_Iterator(tokens);
+
+    REQUIRE_TOKEN_EXACT(Interface, "interface");
+    REQUIRE_TOKEN_EXACT(Unknown, "Test");
+    REQUIRE_TOKEN_EXACT(Curly_Open, "{");
+    REQUIRE_TOKEN_EXACT(Curly_Close, "}");
+    REQUIRE_TOKEN_EOF();
+}
