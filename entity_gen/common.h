@@ -8,9 +8,11 @@
 #include <cassert>
 #include <string>
 #include <vector>
+#include <optional>
 
 using String = std::string;
 template<typename T> using Vector = std::vector<T>;
+template<typename T> using Optional = std::optional<T>;
 
 enum Field_Flags : unsigned {
     k_unFieldFlags_None         =   0,
@@ -56,6 +58,8 @@ struct Table_Definition {
     Vector<Field_Definition> fields;
     unsigned flags = k_unTableFlags_None;
     Vector<Constant> constants;
+    Optional<String> implements_interface;
+    Vector<String> member_functions;
 };
 
 struct Type_Alias {
@@ -66,6 +70,7 @@ struct Type_Alias {
 struct Top {
     Vector<Table_Definition> table_defs;
     Vector<Type_Alias> type_aliases;
+    Vector<String> header_includes;
 };
 
 struct Paths {
@@ -78,6 +83,8 @@ enum Token_Kind {
     k_unToken_Unknown,
     k_unToken_Table,
     k_unToken_Alias,
+    k_unToken_Include,
+    k_unToken_Member_Function,
     k_unToken_Curly_Open,
     k_unToken_Curly_Close,
     k_unToken_Square_Open,
@@ -85,6 +92,9 @@ enum Token_Kind {
     k_unToken_Colon,
     k_unToken_Semicolon,
     k_unToken_Pound,
+    k_unToken_Paren_Open,
+    k_unToken_Paren_Close,
+    k_unToken_Single_Quote,
 };
 
 struct Token {

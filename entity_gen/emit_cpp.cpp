@@ -93,6 +93,12 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     for (size_t i = 0; i < unIncludesCount; i++) EMIT_INCLUDE(apszIncludes[i]);
     out->Printf("\n");
 
+    out->Printf("// Included in the entity definition file\n");
+    for (auto& header_include : top.header_includes) {
+        out->Printf("#include <%s>\n", header_include.c_str());
+    }
+    out->Printf("\n");
+
     // Emit typedefs
     for (auto& alias : top.type_aliases) {
         out->Printf("%s;\n", AliasToCAlias(alias).c_str());
@@ -105,7 +111,11 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
             out->Printf("#define %s %d\n", constant.name.c_str(), constant.value);
         }
 
-        out->Printf("struct %s {\n", table.name.c_str());
+        if (table.implements_interface.has_value()) {
+            out->Printf("struct %s : public %s {\n", table.name.c_str(), table.implements_interface.value().c_str());
+        } else {
+            out->Printf("struct %s {\n", table.name.c_str());
+        }
         bool bHasTempField = false;
         for (auto& field : table.fields) {
             out->Printf("    %s;\n", FieldToCField(table, field).c_str());
@@ -120,6 +130,10 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
                 }
             }
             out->Printf("    }\n");
+        }
+
+        for (auto& member_fun : table.member_functions) {
+            out->Printf("    %s;\n", member_fun.c_str());
         }
 
         out->Printf("};\n\n");

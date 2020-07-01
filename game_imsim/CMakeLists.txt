@@ -4,20 +4,20 @@ set(SRC
 	tools.h
 	render_queue.h
 	draw_queue.h
-	imsim.h
 	serialization.cpp
 	serialization.h
 	convar.cpp
 	convar.h
 
 	entities.def
-	imsim.h
+	an.h
 
 	entry.cpp
 	# game_core.cpp
 	game.cpp
 	editor.cpp
 	draw_queue.cpp
+	collision_handling.cpp
 )
 
 if(MSVC)
@@ -27,15 +27,15 @@ else()
 endif()
 
 add_custom_command(
-	OUTPUT imsim.h serialization.cpp
-	COMMAND entity_gen ARGS ${CMAKE_CURRENT_BINARY_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/entities.def" imsim
+	OUTPUT an.h serialization.cpp
+	COMMAND entity_gen ARGS ${CMAKE_CURRENT_BINARY_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/entities.def" an
 	DEPENDS entity_gen entities.def
 )
 
-add_executable(game_imsim ${SRC})
-target_include_directories(game_imsim PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
-target_link_directories(game_imsim PRIVATE ${SDL2TTF_LIBRARY} )
-target_link_libraries(game_imsim PRIVATE ${SDL2_LIBRARIES} SDL2_ttf glad imgui libgame ${LINUXLIBS} box2d)
-target_compile_options(game_imsim PRIVATE "-mfma")
-target_precompile_headers(game_imsim PRIVATE "stdafx.h")
-ld_builddir(game_imsim)
+add_executable(game_an ${SRC})
+target_include_directories(game_an PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2TTF_INCLUDE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+target_link_directories(game_an PRIVATE ${SDL2TTF_LIBRARY} )
+target_link_libraries(game_an PRIVATE ${SDL2_LIBRARIES} SDL2_ttf glad imgui libgame ${LINUXLIBS} box2d)
+target_compile_options(game_an PRIVATE "-mfma")
+target_precompile_headers(game_an PRIVATE "stdafx.h")
+ld_builddir(game_an)

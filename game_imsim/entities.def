@@ -1,3 +1,5 @@
+include 'box2d/box2d.h'
+
 alias b2Fixture;
 alias b2Body;
 
@@ -42,8 +44,12 @@ table Corpse {
     flTimeSinceDeath: float;
 }
 
+#implements_interface(b2ContactListener)
 table Player {
     bKeys : bool[3];
+
+    member_function 'void BeginContact(b2Contact*) override';
+    member_function 'void EndContact(b2Contact*) override';
 }
 
 table Static_Prop {

@@ -27,6 +27,17 @@ using String_Set = std::unordered_set<std::string>;
 static String_Set gValidAttributes = {
     "memory_only", "reset",
     "not_owning",
+    "implements_interface",
+};
+
+static String_Set gAttributesWithRequiredParameter = {
+    "implements_interface"
+};
+
+static String_Set gAttributesWithoutParameter = {
+    "memory_only",
+    "reset",
+    "not_owning",
 };
 
 static bool OnlyHasDigits(String const& s) {
@@ -95,6 +106,24 @@ static bool SyntaxCheckField(Token_Stream_Iterator& it) {
     return true;
 }
 
+static bool SyntaxCheckMemberFunction(Token_Stream_Iterator& it) {
+    assert(it->kind == k_unToken_Member_Function);
+    it++;
+    EXPECT_TOKEN_TYPE(k_unToken_Single_Quote, "Expected opening single quote in member function declaration, got '%s'\n");
+    it++;
+
+    EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected member function declaration, got '%s'\n");
+    it++;
+
+    EXPECT_TOKEN_TYPE(k_unToken_Single_Quote, "Expected opening single quote in member function declaration, got '%s'\n");
+    it++;
+
+    EXPECT_TOKEN_TYPE(k_unToken_Semicolon, "Unexpected token at the end of member function declaration: expected semicolon, got '%s'\n");
+    it++;
+
+    return true;
+}
+
 static bool SyntaxCheckTable(Token_Stream_Iterator& it) {
     bool bRet = true;
 
@@ -113,7 +142,14 @@ static bool SyntaxCheckTable(Token_Stream_Iterator& it) {
     it++;
 
     while (bRet && it->kind != k_unToken_Curly_Close) {
-        bRet &= SyntaxCheckField(it);
+        switch (it->kind) {
+        case k_unToken_Member_Function:
+            bRet &= SyntaxCheckMemberFunction(it);
+            break;
+        default:
+            bRet &= SyntaxCheckField(it);
+            break;
+        }
     }
 
     if (bRet) {
@@ -124,13 +160,55 @@ static bool SyntaxCheckTable(Token_Stream_Iterator& it) {
     return bRet;
 }
 
+static bool SyntaxCheckHeaderInclude(Token_Stream_Iterator& it) {
+    bool bRet = true;
+
+    assert(it->kind == k_unToken_Include);
+    it++;
+    EXPECT_TOKEN_TYPE(k_unToken_Single_Quote, "Expected single quote before the path in include statement, got '%s'\n");
+    it++;
+
+    EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected path in include statement, got '%s'\n");
+    it++;
+
+    EXPECT_TOKEN_TYPE(k_unToken_Single_Quote, "Expected single quote after the path in include statement, got '%s'\n");
+    it++;
+
+    return bRet;
+}
+
 static bool SyntaxCheckTopAttribute(Token_Stream_Iterator& it) {
     bool bRet = true;
 
     assert(it->kind == k_unToken_Pound);
     it++;
     EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected identifier after a pound sign, got '%s'\n");
+    auto const& attr = it->string;
     it++;
+
+    if (it->kind == k_unToken_Paren_Open) {
+        if (gAttributesWithoutParameter.count(attr)) {
+            PRINT_TOKEN_POS();
+            fprintf(stderr,
+                "attribute '%s' should have no parameter",
+                attr.c_str());
+            return false;
+        }
+
+        it++;
+        EXPECT_TOKEN_TYPE(k_unToken_Unknown, "Expected attribute parameter, got '%s'\n");
+        it++;
+        EXPECT_TOKEN_TYPE(k_unToken_Paren_Close, "Expected closing parantheses after attribute parameter, got '%s'\n");
+        it++;
+    } else {
+        if (gAttributesWithRequiredParameter.count(attr)) {
+            PRINT_TOKEN_POS();
+            fprintf(stderr,
+                "attribute '%s' needs a parameter",
+                attr.c_str());
+            return false;
+        }
+    }
 
     return bRet;
 }
@@ -182,6 +260,9 @@ bool SyntaxCheckTop(Vector<Token> const& tokens) {
             break;
         case k_unToken_Alias:
             bRet &= SyntaxCheckAlias(it);
+            break;
+        case k_unToken_Include:
+            bRet &= SyntaxCheckHeaderInclude(it);
             break;
         }
     }
@@ -266,17 +347,61 @@ static Field_Definition ParseField(Token_Stream_Iterator& it) {
     return def;
 }
 
+static String ParseMemberFunction(Token_Stream_Iterator& it) {
+    ASSERT_TOKEN_KIND(k_unToken_Member_Function);
+    it++;
+    ASSERT_TOKEN_KIND(k_unToken_Single_Quote);
+    it++;
+    
+    ASSERT_TOKEN_KIND(k_unToken_Unknown);
+    auto const ret = it->string;
+    it++;
+
+    ASSERT_TOKEN_KIND(k_unToken_Single_Quote);
+    it++;
+
+    ASSERT_TOKEN_KIND(k_unToken_Semicolon);
+    it++;
+
+    return ret;
+}
+
+struct Attribute {
+    String attribute;
+    Optional<String> parameter;
+};
+
+static Attribute ParseAttribute(Token_Stream_Iterator& it) {
+    assert(it->kind == k_unToken_Pound);
+    it++;
+    String attribute = it->string;
+    Optional<String> parameter;
+    it++;
+    if (it->kind == k_unToken_Paren_Open) {
+        it++;
+        assert(it->kind == k_unToken_Unknown);
+        parameter = it->string;
+        it++;
+        assert(it->kind == k_unToken_Paren_Close);
+        it++;
+    }
+
+    return Attribute { std::move(attribute), std::move(parameter) };
+}
+
 static Table_Definition ParseTable(Token_Stream_Iterator& it) {
     Table_Definition def;
 
     while (it->kind == k_unToken_Pound) {
-        it++;
-        if (it->string == "memory_only") {
+        auto attr = ParseAttribute(it);
+        if (attr.attribute == "memory_only") {
             def.flags |= k_unTableFlags_Memory_Only;
+        } else if (attr.attribute == "implements_interface") {
+            assert(attr.parameter.has_value());
+            def.implements_interface = std::move(attr.parameter);
         } else {
             fprintf(stderr, "Unknown table attribute '%s'\n", it->string.c_str());
         }
-        it++;
     }
 
     // eat 'table'
@@ -298,16 +423,30 @@ static Table_Definition ParseTable(Token_Stream_Iterator& it) {
     it++;
 
     while (it->kind != k_unToken_Curly_Close) {
-        auto field = ParseField(it);
-
-        if (field.type.count != 1) {
-            Constant constant;
-            constant.name = GenerateConstantIdentifier(def, field);
-            constant.value = field.type.count;
-            def.constants.push_back(std::move(constant));
+        switch (it->kind) {
+        case k_unToken_Member_Function:
+        {
+            auto fun = ParseMemberFunction(it);
+            def.member_functions.push_back(std::move(fun));
+            break;
         }
+        default:
+        {
+            // NOTE: be careful if you extend this switch-case, because a field
+            // can not only begin with an Unknown token but also a Pound!
+            auto field = ParseField(it);
 
-        def.fields.push_back(std::move(field));
+            if (field.type.count != 1) {
+                Constant constant;
+                constant.name = GenerateConstantIdentifier(def, field);
+                constant.value = field.type.count;
+                def.constants.push_back(std::move(constant));
+            }
+
+            def.fields.push_back(std::move(field));
+            break;
+        }
+        }
     }
 
     ASSERT_TOKEN_KIND(k_unToken_Curly_Close);
@@ -350,19 +489,37 @@ static Type_Alias ParseAlias(Token_Stream_Iterator& it) {
     return ret;
 }
 
+static String ParseInclude(Token_Stream_Iterator& it) {
+    assert(it->kind == k_unToken_Include);
+    it++;
+    assert(it->kind == k_unToken_Single_Quote);
+    it++;
+
+    assert(it->kind == k_unToken_Unknown);
+    auto const ret = it->string;
+    it++;
+
+    assert(it->kind == k_unToken_Single_Quote);
+    it++;
+
+    return ret;
+}
+
 Top ParseTop(Vector<Token> const& tokens) {
     Top ret;
     auto it = Token_Stream_Iterator(tokens);
 
     while (it->kind != k_unToken_EOF) {
         switch (it->kind) {
-        // TODO(danielm): make attribute parsing it's own thing
         case k_unToken_Pound:
         case k_unToken_Table:
             ret.table_defs.push_back(ParseTable(it));
             break;
         case k_unToken_Alias:
             ret.type_aliases.push_back(ParseAlias(it));
+            break;
+        case k_unToken_Include:
+            ret.header_includes.push_back(ParseInclude(it));
             break;
         }
     }

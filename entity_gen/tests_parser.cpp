@@ -242,3 +242,58 @@ TEST_CASE("Forward decl", "[parser]") {
     REQUIRE(alias.type.base == "Aggregate_Type");
     REQUIRE(alias.type.count == 1);
 }
+
+TEST_CASE("Parameterized attribute", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Pound), TOKU("Attr"), TOK(Paren_Open), TOKU("param"), TOK(Paren_Close),
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+}
+
+TEST_CASE("Implements interface", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Pound), TOKU("implements_interface"), TOK(Paren_Open), TOKU("param"), TOK(Paren_Close),
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+
+    REQUIRE(top.table_defs.size() == 1);
+    auto& table = top.table_defs[0];
+    REQUIRE(table.implements_interface.has_value());
+    REQUIRE(table.implements_interface.value() == "param");
+}
+
+TEST_CASE("Include header", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Include), TOK(Single_Quote), TOKU("mylib/header.h"), TOK(Single_Quote),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+
+    REQUIRE(top.header_includes.size() == 1);
+    REQUIRE(top.header_includes[0] == "mylib/header.h");
+}
+
+TEST_CASE("Member function", "[parser]") {
+    auto const member_func_sig = "<signature here>";
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOK(Member_Function), TOK(Single_Quote), TOKU(member_func_sig), TOK(Single_Quote), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+
+    REQUIRE(top.table_defs.size() == 1);
+    auto& table = top.table_defs[0];
+    REQUIRE(table.member_functions.size() == 1);
+    REQUIRE(table.member_functions[0] == member_func_sig);
+}

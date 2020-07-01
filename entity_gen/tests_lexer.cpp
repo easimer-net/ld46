@@ -159,3 +159,47 @@ TEST_CASE("Pointer field", "[lexer]") {
     REQUIRE_TOKEN_EXACT(Curly_Close, "}");
     REQUIRE_TOKEN_EOF();
 }
+
+TEST_CASE("Parametrized attribute", "[lexer]") {
+    auto pSource = "#attr(param)";
+    auto const tokens = Tokenize(pSource, strlen(pSource));
+    auto it = Token_Stream_Iterator(tokens);
+
+    REQUIRE_TOKEN_EXACT(Pound, "#");
+    REQUIRE_TOKEN_EXACT(Unknown, "attr");
+    REQUIRE_TOKEN_EXACT(Paren_Open, "(");
+    REQUIRE_TOKEN_EXACT(Unknown, "param");
+    REQUIRE_TOKEN_EXACT(Paren_Close, ")");
+    REQUIRE_TOKEN_EOF();
+}
+
+TEST_CASE("Header include", "[lexer]") {
+    auto pSource = "include 'library/header.h'";
+    auto const tokens = Tokenize(pSource, strlen(pSource));
+    auto it = Token_Stream_Iterator(tokens);
+
+    REQUIRE_TOKEN_EXACT(Include, "include");
+    REQUIRE_TOKEN_EXACT(Single_Quote, "'");
+    REQUIRE_TOKEN_EXACT(Unknown, "library/header.h");
+    REQUIRE_TOKEN_EXACT(Single_Quote, "'");
+    REQUIRE_TOKEN_EOF();
+}
+
+TEST_CASE("Member function token", "[lexer]") {
+    auto pSource = "table Test {\
+                        member_function 'virtual return_t* const f(param_t* const p0, param_t* p1) const override';\
+                    }";
+    auto const tokens = Tokenize(pSource, strlen(pSource));
+    auto it = Token_Stream_Iterator(tokens);
+
+    REQUIRE_TOKEN_EXACT(Table, "table");
+    REQUIRE_TOKEN_EXACT(Unknown, "Test");
+    REQUIRE_TOKEN_EXACT(Curly_Open, "{");
+    REQUIRE_TOKEN_EXACT(Member_Function, "member_function");
+    REQUIRE_TOKEN_EXACT(Single_Quote, "'");
+    REQUIRE_TOKEN_EXACT(Unknown, "virtual return_t* const f(param_t* const p0, param_t* p1) const override");
+    REQUIRE_TOKEN_EXACT(Single_Quote, "'");
+    REQUIRE_TOKEN_EXACT(Semicolon, ";");
+    REQUIRE_TOKEN_EXACT(Curly_Close, "}");
+    REQUIRE_TOKEN_EOF();
+}
