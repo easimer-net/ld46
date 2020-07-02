@@ -179,6 +179,11 @@ public:
             // NOTE(danielm): should we clear this set in release builds?
         }
 
+        for (auto const& kvDoor : m_pCommon->aGameData.closed_doors) {
+            auto& ent = m_pCommon->aGameData.entities[kvDoor.first];
+            m_pCommon->aGameData.phys_statics[kvDoor.first] = {};
+        }
+
         // Keys
         for (auto const& kvKey : m_pCommon->aGameData.keys) {
             auto& ent = m_pCommon->aGameData.entities[kvKey.first];
@@ -352,24 +357,37 @@ public:
         return ret;
     }
 
+    template<typename T> void DestroyPhysicalObject(T& phys) {
+        phys.body->DestroyFixture(phys.fixture);
+        m_physWorld.DestroyBody(phys.body);
+        phys.fixture = NULL;
+        phys.body = NULL;
+    }
+
     // Delete an entity
     void DeleteEntity(Entity_ID id) {
         auto& aGameData = m_pCommon->aGameData;
         if (aGameData.phys_statics.count(id)) {
             auto& phys = aGameData.phys_statics[id];
-            phys.body->DestroyFixture(phys.fixture);
-            m_physWorld.DestroyBody(phys.body);
-            phys.fixture = NULL;
-            phys.body = NULL;
+            DestroyPhysicalObject(phys);
         }
         if (aGameData.phys_dynamics.count(id)) {
             auto& phys = aGameData.phys_dynamics[id];
-            phys.body->DestroyFixture(phys.fixture);
-            m_physWorld.DestroyBody(phys.body);
-            phys.fixture = NULL;
-            phys.body = NULL;
+            DestroyPhysicalObject(phys);
         }
         m_pCommon->aGameData.DeleteEntity(id);
+    }
+
+    template<typename T> void RemoveComponent(Entity_ID id);
+
+    template<> void RemoveComponent<Phys_Dynamic>(Entity_ID id) {
+        auto& phys = m_pCommon->aGameData.phys_dynamics[id];
+        DestroyPhysicalObject(phys);
+    }
+
+    template<> void RemoveComponent<Phys_Static>(Entity_ID id) {
+        auto& phys = m_pCommon->aGameData.phys_statics[id];
+        DestroyPhysicalObject(phys);
     }
 
     // Create a player entity
@@ -525,6 +543,7 @@ public:
                         if (player.bKeys[door.eKeyRequired]) {
                             aGameData.open_doors[kvDoor.first] = {};
                             doorsToOpen.insert(kvDoor.first);
+                            RemoveComponent<Phys_Static>(kvDoor.first);
                             printf("Player used key %d to open door #%zu\n", door.eKeyRequired, kvDoor.first);
                         } else {
                             printf("Player needs key %d to open that door\n", door.eKeyRequired);
