@@ -21,6 +21,7 @@ static void WriteHeaderInclude(IOutput* out, String const& pszFile) {
 }
 
 #define EMIT_INCLUDE(file) WriteHeaderInclude(out, file)
+#define FIELD_NEEDS_RESET(flags) ((flags & k_unFieldFlags_Reset) != 0 && (flags & k_unFieldFlags_Not_Owning) == 0)
 
 static String FieldToCField(Table_Definition const& table, Field_Definition const& field) {
     String ret = field.type.base;
@@ -79,7 +80,37 @@ static String AliasToCAlias(Type_Alias const& alias) {
     return ret;
 }
 
-#define FIELD_NEEDS_RESET(flags) ((flags & k_unFieldFlags_Reset) != 0 && (flags & k_unFieldFlags_Not_Owning) == 0)
+
+
+static bool DoesTableImplementInterface(Top const& top, Table_Definition const& table, Table_Definition const& interface) {
+    assert(interface.flags & k_unTableFlags_Interface);
+
+    if (table.implements_interface) {
+        Table_Definition const* pCur = &table;
+
+        do {
+            if (pCur->implements_interface) {
+                if (pCur->implements_interface == interface.name) {
+                    return true;
+                } else {
+                    auto if_name = pCur->implements_interface.value();
+                    pCur = NULL;
+                    for (auto& table : top.table_defs) {
+                        if (table.name == if_name) {
+                            pCur = &table;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // Reached top of inheritance chain
+                return false;
+            }
+        } while (pCur != NULL);
+    }
+
+    return false;
+}
 
 void GenerateHeaderFile(IOutput* out, Top const& top) {
     auto& tables = top.table_defs;
@@ -180,24 +211,40 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     out->Printf(TAB2 "entities[i].bUsed = false;\n");
     out->Printf(TAB "}\n");
 
-    // Define "reflection" routines
-    out->Printf(TAB "template<typename T> Vector<T*> GetInterfaceImplementations(Entity_ID);\n");
+    // Generate "reflection" routines that return all the components of an
+    // entity that implement a given interface, provided that an entity has
+    // such a component.
+    //
+    // For example, a Player entity may implement a Collision_Handler
+    // interface, so that players can detect when they bump into enemies.
+    // 
+    // But since Players are also Living beings and all Living beings can be
+    // damaged by, for example, projectiles, then the Living component
+    // implement must also implement the Collision_Handler interface. Therefore
+    // an entity may have multiple collision handlers.
+    //
+    // To dispatch a BeginContact or EndContact event the game code must know
+    // about all the handlers. The GetInterfaceImplementations function
+    // generated here does exactly that: collect all the components on an
+    // entity that implement an interface and return that list.
+    out->Printf(TAB "template<typename T> Vector<T*> GetInterfaceImplementations(Entity_ID id);\n");
     for (auto& interface : tables) {
         if (interface.flags & k_unTableFlags_Interface) {
             auto const T = interface.name.c_str();
-            out->Printf(TAB "template<> Vector<%s*> GetInterfaceImplementations<%s>(Entity_ID i) {\n", T, T);
+            out->Printf(TAB "template<> Vector<%s*> GetInterfaceImplementations<%s>(Entity_ID id) {\n", T, T);
             out->Printf(TAB2 "Vector<%s*> ret;\n", T);
             for (auto& table : tables) {
-                // TODO: this won't work with multiple levels of inheritance
-                if (table.implements_interface.has_value() && table.implements_interface.value() == interface.name) {
-                    out->Printf(TAB2 "if(%s.count(i)) ret.push_back(&%s[i]);\n", table.var_name.c_str(), table.var_name.c_str());
+                // Enumerate all tables and see which implements this interface
+                if ((table.flags & k_unTableFlags_Interface) == 0) {
+                    if (DoesTableImplementInterface(top, table, interface)) {
+                        out->Printf(TAB2 "if(%s.count(id)) ret.push_back(&%s[id]);\n", table.var_name.c_str(), table.var_name.c_str());
+                    }
                 }
             }
             out->Printf(TAB2 "return ret;\n");
             out->Printf(TAB "}\n");
         }
     }
-
     out->Printf("};\n");
 }
 
