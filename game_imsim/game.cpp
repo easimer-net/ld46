@@ -356,10 +356,18 @@ public:
     void DeleteEntity(Entity_ID id) {
         auto& aGameData = m_pCommon->aGameData;
         if (aGameData.phys_statics.count(id)) {
-            // TODO(danielm): remove body, fixture, etc.
+            auto& phys = aGameData.phys_statics[id];
+            phys.body->DestroyFixture(phys.fixture);
+            m_physWorld.DestroyBody(phys.body);
+            phys.fixture = NULL;
+            phys.body = NULL;
         }
         if (aGameData.phys_dynamics.count(id)) {
-            // TODO(danielm): remove body, fixture, etc.
+            auto& phys = aGameData.phys_dynamics[id];
+            phys.body->DestroyFixture(phys.fixture);
+            m_physWorld.DestroyBody(phys.body);
+            phys.fixture = NULL;
+            phys.body = NULL;
         }
         m_pCommon->aGameData.DeleteEntity(id);
     }
@@ -490,7 +498,6 @@ public:
             }
 
             auto const vMove = PLAYER_SPEED * vPlayerMoveDir;
-            printf("%f %f\n", vMove[0], vMove[1]);
 
             /*
             // NOTE(danielm): old collision code, only checks against the world geometry
