@@ -52,7 +52,9 @@ static bool Process(Paths const& paths, String const& pszGameName) {
 // a serialization.cpp
 // entity_gen.exe path/outdir path/entities.def gamename
 int main(int argc, char** argv) {
+    int ret = EXIT_SUCCESS;
     printf("Entity Generator\n");
+
     if (argc >= 4) {
         auto const pathOut = String(argv[1]);
         auto const pszGameName = String(argv[3]);
@@ -63,12 +65,15 @@ int main(int argc, char** argv) {
         };
         printf("Paths:\nDefinition file:\t'%s'\nHeader output:\t'%s'\nSerializer output:\t'%s'\n",
             paths.input.c_str(), paths.outputHeader.c_str(), paths.outputSer.c_str());
-        Process(paths, pszGameName);
+        if (!Process(paths, pszGameName)) {
+            ret = EXIT_FAILURE;
+        }
     } else {
         fprintf(stderr, "Usage: %s path/outdir path/entities.def game_name\n", argv[0]);
         fprintf(stderr, "path/outdir: <game_name>.h and serialization.cpp will be placed there\n");
         fprintf(stderr, "path/entities.def: path to the entities definition file\n");
         fprintf(stderr, "game_name: name of the game\n");
     }
-    return 0;
+
+    return ret;
 }
