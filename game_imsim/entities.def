@@ -70,6 +70,7 @@ table Key {
 }
 
 table Closed_Door {
+    %'Index of the key type that opens this door'
     eKeyRequired : int;
 }
 

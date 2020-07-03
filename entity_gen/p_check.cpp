@@ -65,6 +65,23 @@ static bool OnlyHasDigits(String const& s) {
     return true;
 }
 
+static bool SyntaxCheckDocumentation(Token_Stream_Iterator& it) {
+    assert(it->kind == k_unToken_Percent);
+    it++;
+    EXPECT_TOKEN_TYPE(k_unToken_Single_Quote, "Expected single quote after the percent sign in field/table documentation, got '%s'\n");
+    it++;
+    if (it->kind == k_unToken_Single_Quote) {
+        PRINT_TOKEN_POS();
+        fprintf(stderr, "Warning: empty documentation\n");
+    } else {
+        it++;
+    }
+    EXPECT_TOKEN_TYPE(k_unToken_Single_Quote, "Expected single quote at the end of field/table documentation, got '%s'\n");
+    it++;
+
+    return true;
+}
+
 static bool SyntaxCheckType(Token_Stream_Iterator& it) {
     if (it->kind == k_unToken_Unknown && it->string == "*") {
         it++;
@@ -158,7 +175,15 @@ static bool SyntaxCheckInterface(Token_Stream_Iterator& it) {
 
     while (bRet && it->kind != k_unToken_Curly_Close) {
         EXPECT_TOKEN_TYPE(k_unToken_Member_Function, "Expected member function declaration in interface declaration, got '%s'\n");
-        bRet &= SyntaxCheckMemberFunction(it);
+        if (it->kind == k_unToken_Member_Function) {
+            bRet &= SyntaxCheckMemberFunction(it);
+        } else if (it->kind == k_unToken_Percent) {
+            bRet &= SyntaxCheckDocumentation(it);
+        } else {
+            PRINT_TOKEN_POS();
+            fprintf(stderr, "Expected member function or documentation in interface declaration, got '%s'\n", it->string.c_str());
+            return false;
+        }
     }
 
     if (bRet) {
@@ -188,6 +213,9 @@ static bool SyntaxCheckTable(Token_Stream_Iterator& it) {
 
     while (bRet && it->kind != k_unToken_Curly_Close) {
         switch (it->kind) {
+        case k_unToken_Percent:
+            bRet &= SyntaxCheckDocumentation(it);
+            break;
         case k_unToken_Member_Function:
             bRet &= SyntaxCheckMemberFunction(it);
             break;

@@ -53,6 +53,7 @@ static bool TryTokenizeSeparator(Token& dst, char ch, size_t uiLine, size_t uiCo
     case '*':  dst = { k_unToken_Unknown,       "*", uiLine, uiCol }; break;
     case '(':  dst = { k_unToken_Paren_Open,    "(", uiLine, uiCol }; break;
     case ')':  dst = { k_unToken_Paren_Close,   ")", uiLine, uiCol }; break;
+    case '%':  dst = { k_unToken_Percent,       "%", uiLine, uiCol }; break;
     default: ret = false; break;
     }
 

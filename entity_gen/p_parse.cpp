@@ -126,24 +126,59 @@ static Attribute ParseAttribute(Token_Stream_Iterator& it) {
     return Attribute { std::move(attribute), std::move(parameter) };
 }
 
+static String ParseDocumentation(Token_Stream_Iterator& it) {
+    assert(it->kind == k_unToken_Percent);
+    it++;
+    assert(it->kind == k_unToken_Single_Quote);
+    it++;
+
+    auto ret = it->string;
+    it++;
+
+    assert(it->kind == k_unToken_Single_Quote);
+    it++;
+
+    return ret;
+}
+
 static Table_Definition ParseInterface(Token_Stream_Iterator& it, Table_Definition* base_def = NULL);
 
 static Table_Definition ParseTable(Token_Stream_Iterator& it) {
     Table_Definition def;
+    Optional<String> table_docs;
+    bool bTablePreamble = true;
 
-    while (it->kind == k_unToken_Pound) {
-        auto attr = ParseAttribute(it);
-        if (attr.attribute == "memory_only") {
-            def.flags |= k_unTableFlags_Memory_Only;
-        } else if (attr.attribute == "implements_interface") {
-            assert(attr.parameter.has_value());
-            def.implements_interface = std::move(attr.parameter);
-        } else if (attr.attribute == "needs_reference_to_game_data") {
-            def.flags |= k_unTableFlags_Needs_Reference_To_Game_Data;
-        } else {
-            fprintf(stderr, "Unknown table attribute '%s'\n", it->string.c_str());
+    do {
+        switch (it->kind) {
+        case k_unToken_Pound:
+        {
+            auto attr = ParseAttribute(it);
+            if (attr.attribute == "memory_only") {
+                def.flags |= k_unTableFlags_Memory_Only;
+            } else if (attr.attribute == "implements_interface") {
+                assert(attr.parameter.has_value());
+                def.implements_interface = std::move(attr.parameter);
+            } else if (attr.attribute == "needs_reference_to_game_data") {
+                def.flags |= k_unTableFlags_Needs_Reference_To_Game_Data;
+            } else {
+                fprintf(stderr, "Unknown table attribute '%s'\n", it->string.c_str());
+            }
+            break;
         }
-    }
+        case k_unToken_Percent:
+        {
+            table_docs = ParseDocumentation(it);
+            break;
+        }
+        default:
+        {
+            bTablePreamble = false;
+            break;
+        }
+        }
+    } while (bTablePreamble);
+
+    def.documentation = std::move(table_docs);
 
     if (it->kind == k_unToken_Interface) {
         return ParseInterface(it, &def);
@@ -167,12 +202,18 @@ static Table_Definition ParseTable(Token_Stream_Iterator& it) {
     ASSERT_TOKEN_KIND(k_unToken_Curly_Open);
     it++;
 
+    Optional<String> field_docs;
     while (it->kind != k_unToken_Curly_Close) {
         switch (it->kind) {
         case k_unToken_Member_Function:
         {
             auto fun = ParseMemberFunction(it);
             def.member_functions.push_back(std::move(fun));
+            break;
+        }
+        case k_unToken_Percent:
+        {
+            field_docs = ParseDocumentation(it);
             break;
         }
         default:
@@ -187,6 +228,8 @@ static Table_Definition ParseTable(Token_Stream_Iterator& it) {
                 constant.value = field.type.count;
                 def.constants.push_back(std::move(constant));
             }
+
+            field.documentation = std::move(field_docs);
 
             def.fields.push_back(std::move(field));
             break;

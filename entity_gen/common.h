@@ -58,6 +58,7 @@ struct Field_Definition {
     String name;
     Field_Type type;
     unsigned flags = k_unFieldFlags_None;
+    Optional<String> documentation;
 };
 
 struct Constant {
@@ -75,6 +76,7 @@ struct Table_Definition {
     Vector<Constant> constants;
     Optional<String> implements_interface;
     Vector<String> member_functions;
+    Optional<String> documentation;
 };
 
 struct Type_Alias {
@@ -118,6 +120,7 @@ enum Token_Kind {
     k_unToken_Paren_Open,
     k_unToken_Paren_Close,
     k_unToken_Single_Quote,
+    k_unToken_Percent,
 };
 
 struct Token {
