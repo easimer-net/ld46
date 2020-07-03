@@ -238,7 +238,7 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     for (auto& interface : tables) {
         if (interface.flags & k_unTableFlags_Interface) {
             auto const T = interface.name.c_str();
-            out->Printf("template<> std::vector<%s*> Game_Data::GetInterfaceImplementations<%s>(Entity_ID id) {\n", T, T);
+            out->Printf("template<> inline std::vector<%s*> Game_Data::GetInterfaceImplementations<%s>(Entity_ID id) {\n", T, T);
             out->Printf(TAB "std::vector<%s*> ret;\n", T);
             for (auto& table : tables) {
                 // Enumerate all tables and see which implements this interface
