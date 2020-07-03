@@ -216,6 +216,9 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     out->Printf(TAB2 "entities[i].bUsed = false;\n");
     out->Printf(TAB "}\n");
 
+    out->Printf(TAB "template<typename T> std::vector<T*> GetInterfaceImplementations(Entity_ID id);\n");
+    out->Printf("};\n");
+
     // Generate "reflection" routines that return all the components of an
     // entity that implement a given interface, provided that an entity has
     // such a component.
@@ -232,25 +235,23 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     // about all the handlers. The GetInterfaceImplementations function
     // generated here does exactly that: collect all the components on an
     // entity that implement an interface and return that list.
-    out->Printf(TAB "template<typename T> Vector<T*> GetInterfaceImplementations(Entity_ID id);\n");
     for (auto& interface : tables) {
         if (interface.flags & k_unTableFlags_Interface) {
             auto const T = interface.name.c_str();
-            out->Printf(TAB "template<> Vector<%s*> GetInterfaceImplementations<%s>(Entity_ID id) {\n", T, T);
-            out->Printf(TAB2 "Vector<%s*> ret;\n", T);
+            out->Printf("template<> std::vector<%s*> Game_Data::GetInterfaceImplementations<%s>(Entity_ID id) {\n", T, T);
+            out->Printf(TAB "std::vector<%s*> ret;\n", T);
             for (auto& table : tables) {
                 // Enumerate all tables and see which implements this interface
                 if ((table.flags & k_unTableFlags_Interface) == 0) {
                     if (DoesTableImplementInterface(top, table, interface)) {
-                        out->Printf(TAB2 "if(%s.count(id)) ret.push_back(&%s[id]);\n", table.var_name.c_str(), table.var_name.c_str());
+                        out->Printf(TAB "if(%s.count(id)) ret.push_back(&%s[id]);\n", table.var_name.c_str(), table.var_name.c_str());
                     }
                 }
             }
-            out->Printf(TAB2 "return ret;\n");
-            out->Printf(TAB "}\n");
+            out->Printf(TAB "return ret;\n");
+            out->Printf("}\n");
         }
     }
-    out->Printf("};\n");
 }
 
 static char const* gpszSaveLevelHeader = "\n\
