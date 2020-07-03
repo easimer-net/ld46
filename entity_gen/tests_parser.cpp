@@ -472,10 +472,30 @@ TEST_CASE("Parametric attribute without parameter", "[param]") {
     REQUIRE(!SyntaxCheckTop(tokens));
 }
 
-TEST_CASE("Non-parametric attribute with parameter", "[param]") {
+TEST_CASE("Non-parametric attribute with parameter", "[parser]") {
     Vector<Token> const tokens = {
         TOK(Pound), TOKU("memory_only"), TOK(Paren_Open), TOKU("param"), TOK(Paren_Close),
         TOK(Table), TOKU("Test"), TOK(Curly_Open),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(!SyntaxCheckTop(tokens));
+}
+
+TEST_CASE("Pointer type without base", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOKU("field"), TOK(Colon), TOKU("*"), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(!SyntaxCheckTop(tokens));
+}
+
+TEST_CASE("Array type without closing bracket", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOKU("field"), TOK(Colon), TOKU("float"), TOK(Square_Open), TOKU("3"), TOK(Semicolon),
         TOK(Curly_Close),
     };
 
