@@ -216,3 +216,15 @@ TEST_CASE("Interface declaration", "[lexer]") {
     REQUIRE_TOKEN_EXACT(Curly_Close, "}");
     REQUIRE_TOKEN_EOF();
 }
+
+TEST_CASE("Documentation", "[lexer]") {
+    auto pSource = "%'Docs'\n";
+    auto const tokens = Tokenize(pSource, strlen(pSource));
+    auto it = Token_Stream_Iterator(tokens);
+
+    REQUIRE_TOKEN_EXACT(Percent, "%");
+    REQUIRE_TOKEN_EXACT(Single_Quote, "'");
+    REQUIRE_TOKEN_EXACT(Unknown, "Docs");
+    REQUIRE_TOKEN_EXACT(Single_Quote, "'");
+    REQUIRE_TOKEN_EOF();
+}
