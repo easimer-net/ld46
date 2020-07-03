@@ -4,7 +4,7 @@
 //
 
 #pragma once
-#include "parser.h"
+#include "common.h"
 #include "output.h"
 
 void GenerateSerializationCode(IOutput* out, String const& pszGameName, Top const& top);

@@ -7,18 +7,12 @@
 #include "common.h"
 #include "mmap.h"
 #include "lexer.h"
-#include "parser.h"
+#include "p_check.h"
+#include "p_parse.h"
 #include "emit_cpp.h"
 #include "output.h"
 
 // TODO(danielm): namespaced type identifiers break the parser
-// TODO(danielm): serialize field identifiers to make the wire format
-// not break when we add new fields or move them around.
-// To do this, in the executable we have to store the key (hashed)
-// and the offset.
-// When writing we first write the key and then the value.
-// When reading, we read the key, switch on that value and store the value
-// at the offset stored in the executable.
 
 static bool Process(Paths const& paths, String const& pszGameName) {
     bool bRet = false;

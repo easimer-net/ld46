@@ -5,7 +5,6 @@
 
 #include "stdafx.h"
 #include "common.h"
-#include "parser.h"
 #include "output.h"
 #include <meow_hash_x64_aesni.h>
 #include <inttypes.h>

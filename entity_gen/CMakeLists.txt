@@ -3,14 +3,16 @@ set(SRC_CORE
 	common.h
 	output_stdio.cpp
 	lexer.cpp
-	parser.cpp
-    emit_cpp.cpp
+	emit_cpp.cpp
+	p_check.cpp
+	p_parse.cpp
 
 	mmap.h
 	output.h
 	lexer.h
-	parser.h
-    emit_cpp.h
+	emit_cpp.h
+	p_check.h
+	p_parse.h
 )
 
 if(WIN32)

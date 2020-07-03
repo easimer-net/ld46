@@ -82,9 +82,16 @@ struct Type_Alias {
     Field_Type type;
 };
 
+/**
+ * Structure that holds all the information that was extracted from an
+ * input file during parsing.
+ */
 struct Top {
+    // List of table definitions.
     Vector<Table_Definition> table_defs;
+    // List of table definitions.
     Vector<Type_Alias> type_aliases;
+    // List of header files included.
     Vector<String> header_includes;
 };
 

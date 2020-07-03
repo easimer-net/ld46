@@ -4,7 +4,8 @@
 //
 
 #include "stdafx.h"
-#include "parser.h"
+#include "p_check.h"
+#include "p_parse.h"
 #include <testing/catch.hpp>
 
 static Token GenToken(Token_Kind kind, String string = "") {

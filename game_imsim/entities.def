@@ -2,7 +2,6 @@ include 'box2d/box2d.h'
 
 alias b2Fixture;
 alias b2Body;
-alias b2ContactListener;
 
 interface Collision_Handler {
     member_function 'virtual void BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) = 0';
