@@ -229,3 +229,15 @@ TEST_CASE("Documentation", "[lexer]") {
     REQUIRE_TOKEN_EOF();
 }
 
+TEST_CASE("No spaces after 'include' keyword", "[lexer]") {
+    auto pSource = "include'math.h'\n";
+
+    auto const tokens = Tokenize(pSource, strlen(pSource));
+    auto it = Token_Stream_Iterator(tokens);
+
+    REQUIRE_TOKEN_EXACT(Include, "include");
+    REQUIRE_TOKEN_EXACT(Single_Quote, "'");
+    REQUIRE_TOKEN_EXACT(Unknown, "math.h");
+    REQUIRE_TOKEN_EXACT(Single_Quote, "'");
+    REQUIRE_TOKEN_EOF();
+}
