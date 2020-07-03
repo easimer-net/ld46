@@ -12,3 +12,11 @@ void Player::BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) {
 void Player::EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) {
     printf("Player ended colliding with %zu\n", other);
 }
+
+void Knife_Projectile::BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) {
+    printf("Knife began colliding with %zu\n", other);
+}
+
+void Knife_Projectile::EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) {
+    printf("Knife ended colliding with %zu\n", other);
+}

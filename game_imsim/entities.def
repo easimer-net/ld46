@@ -44,15 +44,19 @@ table Living living {
     flMaxHealth: float;
 }
 
+%'Used to make things disappear after some time elapses. Also attached to Living entities when they die.'
 #memory_only
-table Corpse {
-    flTimeSinceDeath: float;
+table Expiring expiring {
+    flTimeLeft: float;
 }
 
 #needs_reference_to_game_data
 #implements_interface(Collision_Handler)
 table Player {
+    mana : float;
+    attackCooldown : float;
     bKeys : bool[3];
+    vLookDir : vec4;
 
     member_function 'void BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
     member_function 'void EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
@@ -76,4 +80,12 @@ table Closed_Door {
 }
 
 table Open_Door {
+}
+
+#needs_reference_to_game_data
+#implements_interface(Collision_Handler)
+#memory_only
+table Knife_Projectile {
+    member_function 'void BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
+    member_function 'void EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
 }

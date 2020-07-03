@@ -106,6 +106,8 @@ m_unPlayerMoveDir = (m_unPlayerMoveDir & (~(x))) | (c ? (x) : 0);
 
 #define CONSOLE_BUFFER_SIZ (64)
 
+#define KNIFE_LIFETIME (4.0f)
+
 // TODO(danielm): move this somewhere away from here
 static float randf() {
     return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
@@ -390,6 +392,31 @@ public:
         DestroyPhysicalObject(phys);
     }
 
+    void AttachPhysDynamic(Entity_ID id, float density, float friction) {
+        Phys_Dynamic p;
+        b2BodyDef bodyDef = {};
+        b2FixtureDef fixtureDef = {};
+        b2PolygonShape shape;
+
+        auto& ent = m_pCommon->aGameData.entities[id];
+
+        bodyDef.type = b2_dynamicBody;
+        bodyDef.position.Set(ent.position[0], ent.position[1]);
+        shape.SetAsBox(ent.size[0] / 2, ent.size[1] / 2);
+
+        p.density = density;
+        p.friction = friction;
+        p.self_id = id;
+
+        p.body = m_physWorld.CreateBody(&bodyDef);
+        p.body->SetUserData((void*)id);
+        fixtureDef.shape = &shape;
+        fixtureDef.density = density;
+        fixtureDef.friction = friction;
+        p.fixture = p.body->CreateFixture(&fixtureDef);
+        m_pCommon->aGameData.phys_dynamics[id] = p;
+    }
+
     // Create a player entity
     void CreatePlayer() {
         auto& game_data = m_pCommon->aGameData;
@@ -413,7 +440,11 @@ public:
                 PLAYER_MAX_HEALTH,
             };
 
-            game_data.players[ret] = {};
+            Player player;
+            player.mana = 100;
+            player.attackCooldown = 0;
+            player.vLookDir = lm::Vector4(1, 0);
+            game_data.players[ret] = player;
 
             game_data.phys_dynamics[ret] = { 1.0, 0.3f };
 
@@ -468,6 +499,20 @@ public:
     // Draws a debug line
     void DbgLine(lm::Vector4 p0, lm::Vector4 p1) {
         DbgLine(p0[0], p0[1], p1[0], p1[1]);
+    }
+
+    void SpawnKnife(lm::Vector4 const& p0, float x_dir) {
+        auto id = AllocateEntity();
+        auto& aGameData = m_pCommon->aGameData;
+        auto& ent = aGameData.entities[id];
+        ent.position = p0;
+        auto const width = 0.125f;
+        ent.size = lm::Vector4(width, width / 2);
+        ent.hSprite = Shared_Sprite("data/spr/knife0.png");
+        aGameData.knife_projectiles[id] = {};
+        aGameData.expiring[id] = { KNIFE_LIFETIME };
+        AttachPhysDynamic(id, 1.0f, 0.3f);
+        aGameData.phys_dynamics[id].body->ApplyLinearImpulseToCenter(0.20f * b2Vec2(x_dir / abs(x_dir), 0), true);
     }
 
     void PhysicsLogic(float const flDelta, Game_Data& aGameData) {
@@ -533,6 +578,10 @@ public:
             auto vel = phys.body->GetLinearVelocity();
             phys.body->SetLinearVelocity({ vMove[0], vel.y });
 
+            player.mana += flDelta * 5;
+            if (player.mana > 100) player.mana = 100;
+            player.attackCooldown -= flDelta;
+
             if (m_bPlayerUse) {
                 Set<Entity_ID> doorsToOpen;
                 for (auto& kvDoor : aGameData.closed_doors) {
@@ -553,6 +602,14 @@ public:
                 for (auto id : doorsToOpen) aGameData.closed_doors.erase(id);
             }
 
+            if (m_bPlayerPrimaryAttack) {
+                if (player.attackCooldown <= 0.0f && player.mana >= 2) {
+                    player.mana -= 2;
+                    player.attackCooldown = 0.25f;
+                    SpawnKnife(ent.position + 1 * player.vLookDir, player.vLookDir[0]);
+                }
+            }
+
             Set<Entity_ID> entitiesToRemove;
             for (auto& kvKey : aGameData.keys) {
                 auto const iEnt = kvKey.first;
@@ -566,6 +623,13 @@ public:
                 }
             }
             for (auto id : entitiesToRemove) DeleteEntity(id);
+
+            auto& living = aGameData.living[kvPlayer.first];
+            char playerid[64];
+            snprintf(playerid, 63, "Player #%zu\n", kvPlayer.first);
+            ImGui::Begin(playerid, 0, ImGuiWindowFlags_NoCollapse);
+            ImGui::Text("Health:   %f\nMana:     %f\n", living.flHealth, player.mana);
+            ImGui::End();
         }
     }
 
@@ -627,23 +691,23 @@ public:
 
         for (auto iLiving : diedEntities) {
             aGameData.living.erase(iLiving);
-            aGameData.corpses[iLiving] = {};
+            aGameData.expiring[iLiving] = { CORPSE_DISAPPEAR_TIME };
             aGameData.players.erase(iLiving);
             printf("Entity %llu has died, created corpse\n", iLiving);
         }
 
-        // Corpses
-        Set<Entity_ID> expiredCorpses;
-        for (auto& kvCorpse : aGameData.corpses) {
-            auto& corpse = kvCorpse.second;
-            corpse.flTimeSinceDeath += flDelta;
-            if (corpse.flTimeSinceDeath > CORPSE_DISAPPEAR_TIME) {
-                expiredCorpses.insert(kvCorpse.first);
+        // Expirings
+        Set<Entity_ID> toBeRemoved;
+        for (auto& kvExpiring : aGameData.expiring) {
+            auto& expiring = kvExpiring.second;
+            expiring.flTimeLeft -= flDelta;
+            if (expiring.flTimeLeft <= 0.0f) {
+                toBeRemoved.insert(kvExpiring.first);
             }
         }
-        for (auto& iCorpse : expiredCorpses) {
-            DeleteEntity(iCorpse);
-            printf("Removed corpse of entity %llu\n", iCorpse);
+        for (auto& iExpired : toBeRemoved) {
+            DeleteEntity(iExpired);
+            printf("Removed expired entity %llu\n", iExpired);
         }
 
         // Doors
@@ -724,6 +788,21 @@ public:
                 DQ_ANNOTATE(dc);
                 dq.Add(dc);
             }
+        }
+
+        if (Convar_Get("ui_physprof")) {
+            if (ImGui::Begin("Physics profile")) {
+                auto& prof = m_physWorld.GetProfile();
+                ImGui::Text("Step:             %f", prof.step);
+                ImGui::Text("Collide:          %f", prof.collide);
+                ImGui::Text("Solve:            %f", prof.solve);
+                ImGui::Text("Solve (init):     %f", prof.solveInit);
+                ImGui::Text("Solve (velocity): %f", prof.solveVelocity);
+                ImGui::Text("Solve (position): %f", prof.solvePosition);
+                ImGui::Text("Broad-phase:      %f", prof.broadphase);
+                ImGui::Text("Solve (TOI):      %f", prof.solveTOI);
+            }
+            ImGui::End();
         }
     }
 

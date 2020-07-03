@@ -580,7 +580,7 @@ public:
             ent.bUsed = false;
 
             game_data.living.erase(id);
-            game_data.corpses.erase(id);
+            game_data.expiring.erase(id);
             game_data.players.erase(id);
         }
     }

@@ -5,7 +5,6 @@
 
 #include "stdafx.h"
 #include "common.h"
-#include "tools.h"
 #include "draw_queue.h"
 
 template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
