@@ -31,7 +31,8 @@ TEST_CASE("Empty table", "[parser]") {
     REQUIRE(table.var_name == "tests");
     REQUIRE(table.fields.size() == 0);
     REQUIRE(table.constants.size() == 0);
-    REQUIRE(table.flags == k_unFieldFlags_None);
+    REQUIRE(table.member_functions.size() == 0);
+    REQUIRE(table.flags == k_unTableFlags_None);
 }
 
 TEST_CASE("Empty table with custom var_name", "[parser]") {
@@ -49,7 +50,8 @@ TEST_CASE("Empty table with custom var_name", "[parser]") {
     REQUIRE(table.var_name == "ents");
     REQUIRE(table.fields.size() == 0);
     REQUIRE(table.constants.size() == 0);
-    REQUIRE(table.flags == k_unFieldFlags_None);
+    REQUIRE(table.member_functions.size() == 0);
+    REQUIRE(table.flags == k_unTableFlags_None);
 }
 
 TEST_CASE("Scalar fields", "[parser]") {
@@ -69,6 +71,7 @@ TEST_CASE("Scalar fields", "[parser]") {
     REQUIRE(table.var_name == "tests");
     REQUIRE(table.fields.size() == 2);
     REQUIRE(table.constants.size() == 0);
+    REQUIRE(table.member_functions.size() == 0);
     REQUIRE(table.flags == k_unTableFlags_None);
 
     auto const& field1 = table.fields[0];
@@ -101,6 +104,7 @@ TEST_CASE("Array fields", "[parser]") {
     REQUIRE(table.var_name == "tests");
     REQUIRE(table.fields.size() == 1);
     REQUIRE(table.constants.size() == 1);
+    REQUIRE(table.member_functions.size() == 0);
     REQUIRE(table.flags == k_unTableFlags_None);
 
     auto const& field = table.fields[0];
@@ -130,6 +134,7 @@ TEST_CASE("Table attributes", "[parser]") {
     REQUIRE(table.var_name == "tests");
     REQUIRE(table.fields.size() == 0);
     REQUIRE(table.constants.size() == 0);
+    REQUIRE(table.member_functions.size() == 0);
     REQUIRE(table.flags == k_unTableFlags_Memory_Only);
 }
 
@@ -151,6 +156,7 @@ TEST_CASE("Field attributes", "[parser]") {
     REQUIRE(table.var_name == "tests");
     REQUIRE(table.fields.size() == 1);
     REQUIRE(table.constants.size() == 0);
+    REQUIRE(table.member_functions.size() == 0);
     REQUIRE(table.flags == k_unTableFlags_None);
 
     auto const& field = table.fields[0];
@@ -205,6 +211,7 @@ TEST_CASE("Parsing pointer field", "[parser]") {
     auto const& table = tables[0];
     REQUIRE(table.name == "Test");
     REQUIRE(table.fields.size() == 1);
+    REQUIRE(table.member_functions.size() == 0);
 
     auto const& field = table.fields[0];
     REQUIRE(field.name == "field");
@@ -311,4 +318,166 @@ TEST_CASE("Interface table", "[parser]") {
     REQUIRE(top.table_defs.size() == 1);
     auto& table = top.table_defs[0];
     REQUIRE(table.flags & k_unTableFlags_Interface);
+}
+
+TEST_CASE("Invalid array length", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOKU("field"), TOK(Colon), TOKU("int"), TOK(Square_Open), TOKU("123A"), TOK(Square_Close), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(!SyntaxCheckTop(tokens));
+}
+
+TEST_CASE("Empty array length", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOKU("field"), TOK(Colon), TOKU("int"), TOK(Square_Open), TOK(Square_Close), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(!SyntaxCheckTop(tokens));
+}
+
+TEST_CASE("Parse alias", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Alias), TOKU("real32"), TOK(Colon), TOKU("float"), TOK(Semicolon),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+
+    REQUIRE(top.type_aliases.size() == 1);
+    auto& alias = top.type_aliases[0];
+    REQUIRE(alias.name == "real32");
+    REQUIRE(alias.type.base == "float");
+    REQUIRE(alias.type.count == 1);
+    REQUIRE(alias.type.is_pointer == false);
+}
+
+TEST_CASE("Parse forward declaration", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Alias), TOKU("b2Fixture"), TOK(Semicolon),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+
+    REQUIRE(top.type_aliases.size() == 1);
+    auto& alias = top.type_aliases[0];
+    REQUIRE(alias.name == "b2Fixture");
+    REQUIRE(alias.type.base == "b2Fixture");
+}
+
+TEST_CASE("Interface with var_name", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Interface), TOKU("Test"), TOKU("ents"), TOK(Curly_Open),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
+    REQUIRE(tables.size() == 1);
+    auto const& table = tables[0];
+    REQUIRE(table.name == "Test");
+    REQUIRE(table.fields.size() == 0);
+    REQUIRE(table.constants.size() == 0);
+    REQUIRE(table.flags == k_unTableFlags_Interface);
+}
+
+TEST_CASE("Interface with fields", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Interface), TOKU("Test"), TOK(Curly_Open),
+            TOKU("field"), TOK(Colon), TOKU("float"), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(!SyntaxCheckTop(tokens));
+}
+
+TEST_CASE("Interface with member function", "[parser]") {
+    auto const signature = "<signature>";
+    Vector<Token> const tokens = {
+        TOK(Interface), TOKU("Test"), TOK(Curly_Open),
+            TOK(Member_Function), TOK(Single_Quote),
+            TOKU(signature),
+            TOK(Single_Quote), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
+    REQUIRE(tables.size() == 1);
+    
+    auto const& table = tables[0];
+    REQUIRE(table.name == "Test");
+    REQUIRE(table.fields.size() == 0);
+    REQUIRE(table.member_functions.size() == 1);
+    REQUIRE(table.member_functions[0] == signature);
+
+    REQUIRE(table.constants.size() == 0);
+    REQUIRE(table.flags == k_unTableFlags_Interface);
+}
+
+TEST_CASE("Table documentation", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Percent), TOK(Single_Quote), TOKU("docs"), TOK(Single_Quote),
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOKU("field"), TOK(Colon), TOKU("float"), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
+    REQUIRE(tables.size() == 1);
+
+    auto& table = tables[0];
+    REQUIRE(table.documentation.has_value());
+    REQUIRE(table.documentation.value() == "docs");
+}
+
+TEST_CASE("Field documentation", "[parser]") {
+    Vector<Token> const tokens = {
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+            TOK(Percent), TOK(Single_Quote), TOKU("docs"), TOK(Single_Quote),
+            TOKU("field"), TOK(Colon), TOKU("float"), TOK(Semicolon),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(SyntaxCheckTop(tokens));
+    auto const top = ParseTop(tokens);
+    auto& tables = top.table_defs;
+    REQUIRE(tables.size() == 1);
+
+    auto& table = tables[0];
+    REQUIRE(!table.documentation.has_value());
+
+    REQUIRE(table.fields.size() == 1);
+    auto& field = table.fields[0];
+    REQUIRE(field.documentation.has_value());
+    REQUIRE(field.documentation.value() == "docs");
+}
+
+TEST_CASE("Parametric attribute without parameter", "[param]") {
+    Vector<Token> const tokens = {
+        TOK(Pound), TOKU("implements_interface"),
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(!SyntaxCheckTop(tokens));
+}
+
+TEST_CASE("Non-parametric attribute with parameter", "[param]") {
+    Vector<Token> const tokens = {
+        TOK(Pound), TOKU("memory_only"), TOK(Paren_Open), TOKU("param"), TOK(Paren_Close),
+        TOK(Table), TOKU("Test"), TOK(Curly_Open),
+        TOK(Curly_Close),
+    };
+
+    REQUIRE(!SyntaxCheckTop(tokens));
 }

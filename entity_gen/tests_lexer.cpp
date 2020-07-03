@@ -228,3 +228,4 @@ TEST_CASE("Documentation", "[lexer]") {
     REQUIRE_TOKEN_EXACT(Single_Quote, "'");
     REQUIRE_TOKEN_EOF();
 }
+
