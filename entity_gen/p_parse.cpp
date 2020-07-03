@@ -367,6 +367,7 @@ Top ParseTop(Vector<Token> const& tokens) {
 
     while (it->kind != k_unToken_EOF) {
         switch (it->kind) {
+        case k_unToken_Percent:
         case k_unToken_Pound:
         case k_unToken_Table:
             ret.table_defs.push_back(ParseTable(it));

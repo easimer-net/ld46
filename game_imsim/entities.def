@@ -58,6 +58,7 @@ table Player {
     member_function 'void EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
 }
 
+%'A purely decorational non-animated thing'
 table Static_Prop {
     pszSpritePath: char[128];
 }

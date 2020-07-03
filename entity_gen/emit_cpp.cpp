@@ -142,6 +142,10 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
             out->Printf("#define %s %d\n", constant.name.c_str(), constant.value);
         }
 
+        if (table.documentation) {
+            out->Printf("// %s\n", table.documentation.value().c_str());
+        }
+
         if (table.implements_interface.has_value()) {
             out->Printf("struct %s : public %s {\n", table.name.c_str(), table.implements_interface.value().c_str());
         } else {
@@ -152,6 +156,9 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
         // is a need for a ResetTransients() function to be defined
         bool bHasTempField = false;
         for (auto& field : table.fields) {
+            if (field.documentation) {
+                out->Printf("    // %s\n", field.documentation.value().c_str());
+            }
             out->Printf("    %s;\n", FieldToCField(table, field).c_str());
             bHasTempField |= FIELD_NEEDS_RESET(field.flags);
         }

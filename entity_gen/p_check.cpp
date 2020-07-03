@@ -325,6 +325,9 @@ bool SyntaxCheckTop(Vector<Token> const& tokens) {
 
     while (bRet && it->kind != k_unToken_EOF) {
         switch (it->kind) {
+        case k_unToken_Percent:
+            bRet &= SyntaxCheckDocumentation(it);
+            break;
         case k_unToken_Pound:
             bRet &= SyntaxCheckTopAttribute(it);
             break;
