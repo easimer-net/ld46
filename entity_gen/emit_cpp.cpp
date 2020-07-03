@@ -115,15 +115,14 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     auto& tables = top.table_defs;
 
     assert(out != NULL);
-    char const* apszIncludes[] = { "<cstdint>", "<vector>", "<unordered_map>", "<optional>",
-        "<variant>", "<utils/linear_math.h>", "\"textures.h\"", "\"animator.h\"", "\"entity_gen.h\"" };
+    char const* apszIncludes[] = { "<cstdint>", "<vector>", "<unordered_map>",
+        "<utils/linear_math.h>", "\"textures.h\"", "\"animator.h\"", "\"entity_gen.h\"" };
     constexpr auto unIncludesCount = sizeof(apszIncludes) / sizeof(apszIncludes[0]);
     out->Printf(gpszHeader);
     out->Printf("#pragma once\n");
     for (size_t i = 0; i < unIncludesCount; i++) EMIT_INCLUDE(apszIncludes[i]);
     out->Printf("\n");
 
-    out->Printf("// Included in the entity definition file\n");
     for (auto& header_include : top.header_includes) {
         out->Printf("#include <%s>\n", header_include.c_str());
     }
