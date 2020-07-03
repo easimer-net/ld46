@@ -18,6 +18,7 @@ syn match entgenArrayType '\w\+\[\d\+\]'
 syn match entgenType '\(\:\s*\)\(\w\+\)\(\;\)'
 syn match entgenTableId '\i\+' nextgroup=entgenTableVarName skipwhite
 syn match entgenTableVarName '\i\+'
+syn region entgenDocumentation start="%'" end="'"
 
 syn keyword entgenMemberFunction member_function nextgroup=entgenCppSignature skipwhite
 syn region entgenCppSignature start="'" end="'" contains=@cppSignature
@@ -44,5 +45,7 @@ hi def link entgenMemberFunction Keyword
 
 hi def link entgenIncludeKeyword Keyword
 hi def link entgenInclude String
+
+hi def link entgenDocumentation Comment
 
 let b:current_syntax = "entity_gen"
