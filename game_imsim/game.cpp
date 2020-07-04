@@ -19,6 +19,7 @@
 #include "tools.h"
 #include <functional>
 #include <unordered_set>
+#include <random>
 #include <box2d/box2d.h>
 
 template<typename T>
@@ -108,10 +109,32 @@ m_unPlayerMoveDir = (m_unPlayerMoveDir & (~(x))) | (c ? (x) : 0);
 
 #define KNIFE_LIFETIME (4.0f)
 
-// TODO(danielm): move this somewhere away from here
-static float randf() {
-    return static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-}
+class Rand_Float {
+public:
+    Rand_Float()
+        : rd(), el(rd()),
+        uniform01(0, 1), uniform11(-1, 1) {}
+
+    /**
+     * Generate a random float between 0 and 1.
+     */
+    float normal() {
+        return uniform01(el);
+    }
+
+    /**
+     * Generate a random float between -1 and 1.
+     */
+    float central() {
+        return uniform11(el);
+    }
+
+private:
+    std::random_device rd;
+    std::mt19937 el;
+    std::uniform_real_distribution<float> uniform01;
+    std::uniform_real_distribution<float> uniform11;
+};
 
 class ContactListener : public b2ContactListener {
 public:
@@ -473,7 +496,7 @@ public:
             bShouldSpawn = true;
         } else {
             if (nCount < nMaxCount) {
-                auto const flRand = randf();
+                auto const flRand = m_rand.normal();
                 if (flRand <= flChance) {
                     bShouldSpawn = true;
                 }
@@ -501,11 +524,11 @@ public:
         DbgLine(p0[0], p0[1], p1[0], p1[1]);
     }
 
-    void SpawnKnife(lm::Vector4 const& p0, float x_dir) {
+    void SpawnKnife(lm::Vector4 const& p0, float x_dir, float y_dev) {
         auto id = AllocateEntity();
         auto& aGameData = m_pCommon->aGameData;
         auto& ent = aGameData.entities[id];
-        ent.position = p0;
+        ent.position = p0 + lm::Vector4(0, y_dev * m_rand.central());
         auto const width = 0.125f;
         ent.size = lm::Vector4(width, width / 2);
         ent.hSprite = Shared_Sprite("data/spr/knife0.png");
@@ -562,6 +585,10 @@ public:
 
             auto const vMove = PLAYER_SPEED * vPlayerMoveDir;
 
+            if (abs(vPlayerMoveDir[0]) > 0) {
+                player.vLookDir = lm::Vector4(vPlayerMoveDir[0], 0);
+            }
+
             /*
             // NOTE(danielm): old collision code, only checks against the world geometry
             Collision_World cw;
@@ -605,8 +632,8 @@ public:
             if (m_bPlayerPrimaryAttack) {
                 if (player.attackCooldown <= 0.0f && player.mana >= 2) {
                     player.mana -= 2;
-                    player.attackCooldown = 0.25f;
-                    SpawnKnife(ent.position + 1 * player.vLookDir, player.vLookDir[0]);
+                    player.attackCooldown = 0.05f;
+                    SpawnKnife(ent.position + 1 * player.vLookDir, player.vLookDir[0], ent.size[1] / 2);
                 }
             }
 
@@ -822,6 +849,8 @@ private:
 
     b2World m_physWorld;
     ContactListener m_contact_listener;
+
+    Rand_Float m_rand;
 };
 
 extern IApplication* StartGame(Common_Data* pCommon) {

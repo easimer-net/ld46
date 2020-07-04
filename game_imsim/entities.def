@@ -44,7 +44,7 @@ table Living living {
     flMaxHealth: float;
 }
 
-%'Used to make things disappear after some time elapses. Also attached to Living entities when they die.'
+%'Used to make things disappear after some time.'
 #memory_only
 table Expiring expiring {
     flTimeLeft: float;
@@ -62,7 +62,7 @@ table Player {
     member_function 'void EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
 }
 
-%'A purely decorational non-animated thing'
+%'Non-animated decoration'
 table Static_Prop {
     pszSpritePath: char[128];
 }
