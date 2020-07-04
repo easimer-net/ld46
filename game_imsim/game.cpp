@@ -40,49 +40,6 @@ m_unPlayerMoveDir = (m_unPlayerMoveDir & (~(x))) | (c ? (x) : 0);
 #define PLAYER_DASH_DURATION (0.2f)
 #define PLAYER_DASH_COOLDOWN (0.65f)
 
-#define CHAINGUNNER_MIN_SPAWNED (1)
-#define CHAINGUNNER_MAX_SPAWNED (2)
-#define CHAINGUNNER_SPAWN_CHANCE (0.50f)
-#define CHAINGUNNER_PRIMARY_COOLDOWN (0.05f)
-#define CHAINGUNNER_PRIMARY_DAMAGE (1.0f)
-#define CHAINGUNNER_MAX_HEALTH (50.0f)
-#define CHAINGUNNER_MAX_SPEED (2.0f)
-
-#define RAILGUNNER_MIN_SPAWNED (0)
-#define RAILGUNNER_MAX_SPAWNED (1)
-#define RAILGUNNER_SPAWN_CHANCE (0.35f)
-#define RAILGUNNER_PRIMARY_COOLDOWN (0.65f)
-#define RAILGUNNER_PRIMARY_DAMAGE (10.5f)
-#define RAILGUNNER_MAX_HEALTH (25.0f)
-#define RAILGUNNER_MAX_SPEED (2.85f)
-
-#define SPAWN_ARENA_MIN lm::Vector4(-10, -10)
-#define SPAWN_ARENA_MAX lm::Vector4(10, 10)
-
-#define MIN_POSSESSION_DIST (1)
-
-#define MELEE_MIN_SPAWNED (1)
-#define MELEE_MAX_SPAWNED (3)
-#define MELEE_SPAWN_CHANCE (0.40f)
-#define MELEE_MAX_SPEED (3.75f)
-#define MELEE_MAX_ROT_SPEED (2 * 3.1415926f)
-#define MELEE_ATTACK_RANGE_MIN (1.25f)
-#define MELEE_ATTACK_RANGE_MAX (1.5f)
-#define MELEE_ATTACK_DAMAGE (2.0f)
-#define MELEE_ATTACK_COOLDOWN (0.85f)
-#define MELEE_HEALTH (10.0f)
-
-#define RANGED_MIN_SPAWNED (1)
-#define RANGED_MAX_SPAWNED (3)
-#define RANGED_ATTACK_RANGE_MIN (6.0f)
-#define RANGED_ATTACK_RANGE_MAX (10.5f)
-#define RANGED_ATTACK_DAMAGE (0.5f)
-#define RANGED_ATTACK_COOLDOWN (0.125f)
-#define RANGED_SPAWN_CHANCE (0.15f)
-#define RANGED_MAX_ROT_SPEED (1.5f * 3.1415926f)
-#define RANGED_MAX_SPEED (2.5f)
-#define RANGED_HEALTH (7.0f)
-
 #define CORPSE_DISAPPEAR_TIME (4.0f)
 
 #define HPBAR_OFF_Y (1.25f)
@@ -146,8 +103,6 @@ private:
         auto const a = (Entity_ID)c->GetFixtureA()->GetBody()->GetUserData();
         auto const b = (Entity_ID)c->GetFixtureB()->GetBody()->GetUserData();
 
-        printf("Entities %zu and %zu began contact\n", a, b);
-
         for (auto& handler : gd->GetInterfaceImplementations<Collision_Handler>(a)) {
             handler->BeginContact(c, a, b);
         }
@@ -159,8 +114,6 @@ private:
     void EndContact(b2Contact* c) override {
         auto const a = (Entity_ID)c->GetFixtureA()->GetBody()->GetUserData();
         auto const b = (Entity_ID)c->GetFixtureB()->GetBody()->GetUserData();
-
-        printf("Entities %zu and %zu ended contact\n", a, b);
 
         for (auto& handler : gd->GetInterfaceImplementations<Collision_Handler>(a)) {
             handler->EndContact(c, a, b);
@@ -589,19 +542,6 @@ public:
             if (abs(vPlayerMoveDir[0]) > 0) {
                 player.vLookDir = lm::Vector4(vPlayerMoveDir[0], 0);
             }
-
-            /*
-            // NOTE(danielm): old collision code, only checks against the world geometry
-            Collision_World cw;
-            Collision_AABB_Entity bb;
-            auto vHalfSize = ent.size / 2;
-            bb.min = vNewPos - vHalfSize;
-            bb.max = vNewPos + vHalfSize;
-            cw.push_back(bb);
-            if (CheckCollisions(m_pCommon->aLevelGeometry, cw).size() == 0) {
-                pos = vNewPos;
-            }
-            */
 
             auto vel = phys.body->GetLinearVelocity();
             phys.body->SetLinearVelocity({ vMove[0], vel.y });
