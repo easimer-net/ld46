@@ -282,6 +282,7 @@ int main(int argc, char** argv) {
         IMGUI_CHECKVERSION();
         pImGuiCtx = ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO(); (void)io;
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
         ImGui::StyleColorsDark();
 
