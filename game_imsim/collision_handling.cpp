@@ -17,6 +17,7 @@ void Player::EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) {
 
 void Knife_Projectile::BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) {
     printf("Knife began colliding with %zu\n", other);
+    game_data->DeleteEntity(me);
 }
 
 void Knife_Projectile::EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) {

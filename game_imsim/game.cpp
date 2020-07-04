@@ -485,7 +485,10 @@ public:
         auto const width = 0.125f;
         ent.size = lm::Vector4(width, width / 2);
         ent.hSprite = Shared_Sprite("data/spr/knife0.png");
-        aGameData.knife_projectiles[id] = {};
+        Knife_Projectile proj;
+        proj.self_id = id;
+        proj.game_data = &aGameData;
+        aGameData.knife_projectiles[id] = proj;
         aGameData.expiring[id] = { KNIFE_LIFETIME };
         AttachPhysDynamic(id, 1.0f, 0.3f);
         aGameData.phys_dynamics[id].body->ApplyLinearImpulseToCenter(0.20f * b2Vec2(x_dir / abs(x_dir), 0), true);
