@@ -7,6 +7,8 @@
 
 void Player::BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) {
     printf("Player began colliding with %zu\n", other);
+
+    bMidAir = false;
 }
 
 void Player::EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) {

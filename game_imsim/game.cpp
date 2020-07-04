@@ -35,7 +35,7 @@ m_unPlayerMoveDir = (m_unPlayerMoveDir & (~(x))) | (c ? (x) : 0);
 (((m_unPlayerMoveDir & (x)) != 0) ? 1.0f : 0.0f)
 
 #define PLAYER_MAX_HEALTH (25.0f)
-#define PLAYER_SPEED (3.5f)
+#define PLAYER_SPEED (2.0f)
 #define PLAYER_DASH_SPEED (7.0f)
 #define PLAYER_DASH_DURATION (0.2f)
 #define PLAYER_DASH_COOLDOWN (0.65f)
@@ -578,9 +578,10 @@ public:
             auto const vDist = pos - m_pCommon->vCameraPosition;
             m_pCommon->vCameraPosition = m_pCommon->vCameraPosition + flDelta * vDist;
 
-            if (PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_UP) != 0) {
+            if (PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_UP) != 0 && !player.bMidAir) {
                 // phys.body->ApplyForceToCenter({ 0, -10 }, true);
-                phys.body->ApplyLinearImpulseToCenter({ 0, flDelta * 16 }, true);
+                phys.body->ApplyLinearImpulseToCenter({ 0, 2 }, true);
+                player.bMidAir = true;
             }
 
             auto const vMove = PLAYER_SPEED * vPlayerMoveDir;
