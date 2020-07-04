@@ -11,6 +11,7 @@
 #include "projectiles.h"
 #include "convar.h"
 #include "textures.h"
+#include "serialization.h"
 
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
@@ -69,13 +70,6 @@ static void GLMessageCallback
     }
 #endif
 }
-
-// Application_Result OnLoad();
-// Application_Result OnPreFrame(float flDelta);
-// Application_Result OnInput(SDL_Event const& ev);
-// Application_Result OnDraw(rq::Render_Queue* pQueue);
-// Application_Result OnPostFrame();
-// Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight);
 
 // editor.cpp
 extern IApplication* OpenEditor(Common_Data* pCommon);
@@ -230,6 +224,26 @@ static bool LoadEngineData() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
+#if !defined(NDEBUG)
+    // Load level from last session
+    FILE* f = fopen("last_session.txt", "rb");
+    if (f != NULL) {
+        char level_name[128];
+        auto i = fread(level_name, 1, 127, f);
+        level_name[i] = 0;
+        fclose(f);
+
+
+        gpCommonData->aLevelGeometry.clear();
+        gpCommonData->aInitialGameData.Clear();
+        char pathBuf[152];
+        snprintf(pathBuf, 151, "data/%s.ent", level_name);
+        LoadLevel(pathBuf, gpCommonData->aInitialGameData);
+        // snprintf(pathBuf, 151, "data/%s.geo", level_name);
+        // LoadLevelGeometry(pathBuf, gpCommonData->aLevelGeometry);
+    }
+#endif /* !defined(NDEBUG) */
+
     return true;
 }
 
@@ -316,7 +330,6 @@ int main(int argc, char** argv) {
                 case SDL_KEYDOWN:
                 {
                     if (!bImGuiInterceptKbd) {
-                        // res = OnInput(ev);
                         res = gpApp->OnInput(ev);
                         CHECK_RESULT();
                     }
@@ -325,7 +338,6 @@ int main(int argc, char** argv) {
                 case SDL_KEYUP:
                 {
                     if (!bImGuiInterceptKbd) {
-                        // res = OnInput(ev);
                         res = gpApp->OnInput(ev);
                         CHECK_RESULT();
                     }
@@ -337,7 +349,6 @@ int main(int argc, char** argv) {
                 case SDL_MOUSEWHEEL:
                 {
                     if (!bImGuiInterceptMouse) {
-                        // res = OnInput(ev);
                         res = gpApp->OnInput(ev);
                         CHECK_RESULT();
                     }
@@ -356,7 +367,6 @@ int main(int argc, char** argv) {
 
             auto uiTimeBeforePreFrame = SDL_GetPerformanceCounter();
             flDelta = (uiTimeBeforePreFrame - uiTimeAfterPreFrame) / (double)SDL_GetPerformanceFrequency();
-            // res = OnPreFrame(flDelta);
             res = gpApp->OnPreFrame(flDelta);
             uiTimeAfterPreFrame = SDL_GetPerformanceCounter();
             CHECK_RESULT();
@@ -366,7 +376,6 @@ int main(int argc, char** argv) {
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            // res = OnDraw(&rq);
             res = gpApp->OnDraw(&rq);
             CHECK_RESULT();
 
@@ -394,10 +403,8 @@ int main(int argc, char** argv) {
             if (bSwitchEngineMode) {
                 gpApp->Release();
                 if (bEngineModeGame) {
-                    printf("StartApplication(Editor)\n");
                     gpApp = StartApplication(k_nApplication_Kind_Editor);
                 } else {
-                    printf("StartApplication(Game)\n");
                     gpApp = StartApplication(k_nApplication_Kind_Game);
                 }
 

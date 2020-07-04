@@ -192,6 +192,16 @@ public:
                     auto const pszPathGeoData = std::string("data/") + m_pszLevelName + std::string(".geo");
                     LoadLevel(pszPathEntityData.c_str(), m_pCommon->aInitialGameData);
                     LoadLevelGeometry(pszPathGeoData.c_str(), m_pCommon->aLevelGeometry);
+
+#if !defined(NDEBUG)
+                    FILE* f = fopen("last_session.txt", "wb");
+                    if (f) {
+                        fwrite(m_pszLevelName, 1, strlen(m_pszLevelName), f);
+                        fclose(f);
+                    } else {
+                        fprintf(stderr, "WARNING: failed to open last_session.txt\n");
+                    }
+#endif
                 }
             }
 
