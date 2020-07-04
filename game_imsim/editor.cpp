@@ -87,6 +87,12 @@ public:
                 ImGui::EndMenu();
             }
 
+            if (ImGui::BeginMenu("View")) {
+                ImGui::Checkbox("Render bounding boxes", &m_bShowBoundingBoxes);
+                // ImGui::Checkbox("Edit level geometry", &m_bShowGeoLayer);
+                ImGui::EndMenu();
+            }
+
             if (m_flTimeSinceLastSave < 1) {
                 ImGui::Text("Saved!");
             } else {
@@ -202,8 +208,6 @@ public:
 
         // Entity menu
         if (ImGui::Begin("Entity")) {
-            ImGui::Checkbox("Render bounding boxes", &m_bShowBoundingBoxes);
-            ImGui::Checkbox("Edit level geometry", &m_bShowGeoLayer);
             if(m_bShowGeoLayer) {
                 if (ImGui::Button("Create")) {
                     m_geoCreate = Level_Geometry_Creation_State();

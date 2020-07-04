@@ -216,7 +216,7 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     out->Printf(TAB2 "entities[i].bUsed = false;\n");
     out->Printf(TAB "}\n");
 
-    out->Printf(TAB "template<typename T> std::vector<T*> GetInterfaceImplementations(Entity_ID id);\n");
+    out->Printf(TAB "template<typename T> std::vector<T*> GetInterfaceImplementations(Entity_ID id);\n\n");
 
     // Generate ForEachComponent
     out->Printf(TAB "template<typename Callable> void ForEachComponent(Entity_ID id, Callable& c) {\n");
@@ -233,7 +233,6 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
                 out->Printf(TAB4 "auto p = &%s[id]; \n", var_name);
                 out->Printf(TAB4 "c(id, ent, p);\n");
                 out->Printf(TAB4 "bAttach = false;\n");
-                out->Printf(TAB4 "\n");
                 out->Printf(TAB3 "} else {\n");
                 out->Printf(TAB4 "bAttach = c(id, ent, (%s*)NULL);\n", table.name.c_str());
                 out->Printf(TAB3 "}\n");
