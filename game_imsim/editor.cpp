@@ -249,12 +249,7 @@ public:
                 ImGui::InputFloat2("Size", ent.size.m_flValues);
                 ImGui::InputFloat("Rotation", &ent.flRotation);
                 ImGui::Checkbox("Has collider", &ent.bHasCollider);
-                EditLiving(iEnt);
-                EditStaticProp(iEnt);
-                EditClosedDoor(iEnt);
-                EditPhysStatic(iEnt);
-                EditPhysDynamic(iEnt);
-                EditKey(iEnt);
+                EditSelectedEntity();
 
                 if (bDelete) {
                     m_iSelectedEntity.reset();
@@ -267,122 +262,110 @@ public:
         return k_nApplication_Result_OK;
     }
 
-    void EditLiving(Entity_ID iEnt) {
-        auto& set = m_pCommon->aInitialGameData.living;
-        if (set.count(iEnt)) {
-            auto& data = set[iEnt];
-            ImGui::Separator();
-            ImGui::Text("Living");
-            ImGui::InputFloat("Initial health", &data.flHealth);
-            ImGui::InputFloat("Maximum health", &data.flMaxHealth);
-            ImGui::Separator();
-        } else {
-            if (ImGui::Button("Make Living")) {
-                set[iEnt] = {};
-            }
-        }
-    }
+#define BEGIN_COMPONENT_EDITOR() struct {
+#define EDIT_COMPONENT(T) bool operator()(Entity_ID iEnt, Entity* ent, T* data)
+#define CATCH_ALL() bool operator()(...) { return false; }
+#define END_COMPONENT_EDITOR() } c;
 
-    void EditStaticProp(Entity_ID iEnt) {
-        auto& set = m_pCommon->aInitialGameData.static_props;
-        auto& ent = m_pCommon->aInitialGameData.entities[iEnt];
-        if (set.count(iEnt)) {
-            auto& data = set[iEnt];
-            ImGui::Separator();
-            ImGui::Text("Static prop");
-            ImGui::InputText("Sprite path", data.pszSpritePath, STATIC_PROP_PSZSPRITEPATH_SIZ);
-            if (ImGui::Button("Reload sprite")) {
-                ent.hSprite = Shared_Sprite(data.pszSpritePath);
-            }
-            ImGui::RadioButton("Sprite OK", ent.hSprite != NULL);
-            ImGui::Separator();
-        } else {
-            if (ImGui::Button("Make Static_Prop")) {
-                set[iEnt] = {};
-            }
-        }
-    }
-
-    void EditClosedDoor(Entity_ID iEnt) {
-        auto& set = m_pCommon->aInitialGameData.closed_doors;
-        auto& ent = m_pCommon->aInitialGameData.entities[iEnt];
-        if (set.count(iEnt)) {
-            auto& data = set[iEnt];
-            ImGui::Separator();
-            ImGui::Text("Closed door");
-            char const* aKeyTypes[] = {"Emerald", "Silver", "Gold"};
-            if (ImGui::BeginCombo("Key type", aKeyTypes[data.eKeyRequired])) {
-                for (int i = 0; i < 3; i++) {
-                    if (ImGui::Selectable(aKeyTypes[i])) {
-                        data.eKeyRequired = i;
-                        ent.hSprite = Shared_Sprite("data/door_closed001.png");
-                    }
+    void EditSelectedEntity() {
+        BEGIN_COMPONENT_EDITOR()
+            EDIT_COMPONENT(Living) {
+                if (data != NULL) {
+                    ImGui::Separator();
+                    ImGui::Text("Living");
+                    ImGui::InputFloat("Initial health", &data->flHealth);
+                    ImGui::InputFloat("Maximum health", &data->flMaxHealth);
+                    ImGui::Separator();
+                    return false;
+                } else {
+                    return ImGui::Button("Make Living");
                 }
-                ImGui::EndCombo();
             }
-        } else {
-            if (ImGui::Button("Make Closed_Door")) {
-                set[iEnt] = {};
-            }
-        }
-    }
-
-    void EditKey(Entity_ID iEnt) {
-        auto& set = m_pCommon->aInitialGameData.keys;
-        auto& ent = m_pCommon->aInitialGameData.entities[iEnt];
-        if (set.count(iEnt)) {
-            auto& data = set[iEnt];
-            ImGui::Separator();
-            ImGui::Text("Key");
-            char const* aKeyTypes[] = {"Emerald", "Silver", "Gold"};
-            if (ImGui::BeginCombo("Key type", aKeyTypes[data.eType])) {
-                for (int i = 0; i < 3; i++) {
-                    if (ImGui::Selectable(aKeyTypes[i])) {
-                        data.eType = i;
-                        char pszPath[16];
-                        snprintf(pszPath, 15, "data/key%d.png", i);
-                        ent.hSprite = Shared_Sprite(pszPath);
+            EDIT_COMPONENT(Static_Prop) {
+                if (data != NULL) {
+                    ImGui::Separator();
+                    ImGui::Text("Static prop");
+                    ImGui::InputText("Sprite path", data->pszSpritePath, STATIC_PROP_PSZSPRITEPATH_SIZ);
+                    if (ImGui::Button("Reload sprite")) {
+                        ent->hSprite = Shared_Sprite(data->pszSpritePath);
                     }
+                    ImGui::RadioButton("Sprite OK", ent->hSprite != NULL);
+                    ImGui::Separator();
+                    return false;
+                } else {
+                    return ImGui::Button("Make static prop");
                 }
-                ImGui::EndCombo();
             }
-        } else {
-            if (ImGui::Button("Make Key")) {
-                set[iEnt] = {};
+            EDIT_COMPONENT(Closed_Door) {
+                if (data != NULL) {
+                    ImGui::Separator();
+                    ImGui::Text("Closed door");
+                    char const* aKeyTypes[] = { "Emerald", "Silver", "Gold" };
+                    if (ImGui::BeginCombo("Key type", aKeyTypes[data->eKeyRequired])) {
+                        for (int i = 0; i < 3; i++) {
+                            if (ImGui::Selectable(aKeyTypes[i])) {
+                                data->eKeyRequired = i;
+                                ent->hSprite = Shared_Sprite("data/door_closed001.png");
+                            }
+                        }
+                        ImGui::EndCombo();
+                    }
+                    ImGui::Separator();
+                    return false;
+                } else {
+                    return ImGui::Button("Make closed door");
+                }
             }
-        }
-    }
+            EDIT_COMPONENT(Key) {
+                if (data != NULL) {
+                    ImGui::Separator();
+                    ImGui::Text("Key");
+                    char const* aKeyTypes[] = { "Emerald", "Silver", "Gold" };
+                    if (ImGui::BeginCombo("Key type", aKeyTypes[data->eType])) {
+                        for (int i = 0; i < 3; i++) {
+                            if (ImGui::Selectable(aKeyTypes[i])) {
+                                data->eType = i;
+                                char pszPath[16];
+                                snprintf(pszPath, 15, "data->key%d.png", i);
+                                ent->hSprite = Shared_Sprite(pszPath);
+                            }
+                        }
+                        ImGui::EndCombo();
+                    }
+                    ImGui::Separator();
+                    return false;
+                } else {
+                    return ImGui::Button("Make key");
+                }
+            }
+            EDIT_COMPONENT(Phys_Static) {
+                if (data != NULL) {
+                    ImGui::Separator();
+                    ImGui::Text("Phys_Static");
+                    ImGui::Separator();
+                    return false;
+                } else {
+                    return ImGui::Button("Make physical (static)");
+                }
+            }
+            EDIT_COMPONENT(Phys_Dynamic) {
+                if (data != NULL) {
+                    ImGui::Separator();
+                    ImGui::Text("Phys_Dynamic");
+                    ImGui::InputFloat("Density", &data->density);
+                    ImGui::InputFloat("Friction", &data->density);
+                    double const flMass = (((double)data->density) * ent->size[0]) * ent->size[1];
+                    ImGui::Text("Mass: %f", flMass);
+                    ImGui::Separator();
+                    return false;
+                } else {
+                    return ImGui::Button("Make physical (dynamic)");
+                }
+            }
+            CATCH_ALL()
+        END_COMPONENT_EDITOR()
 
-    void EditPhysStatic(Entity_ID iEnt) {
-        auto& set = m_pCommon->aInitialGameData.phys_statics;
-        auto& ent = m_pCommon->aInitialGameData.entities[iEnt];
-        if (set.count(iEnt)) {
-            auto& data = set[iEnt];
-            ImGui::Separator();
-            ImGui::Text("Phys_Static");
-        } else {
-            if (ImGui::Button("Make physical (static)")) {
-                set[iEnt] = {};
-            }
-        }
-    }
-
-    void EditPhysDynamic(Entity_ID iEnt) {
-        auto& set = m_pCommon->aInitialGameData.phys_dynamics;
-        auto& ent = m_pCommon->aInitialGameData.entities[iEnt];
-        if (set.count(iEnt)) {
-            auto& data = set[iEnt];
-            ImGui::Separator();
-            ImGui::Text("Phys_Dynamic");
-            ImGui::InputFloat("Density", &data.density);
-            ImGui::InputFloat("Friction", &data.density);
-            double const flMass = (((double)data.density) * ent.size[0]) * ent.size[1];
-            ImGui::Text("Mass: %f", flMass);
-        } else {
-            if (ImGui::Button("Make physical (dynamic)")) {
-                set[iEnt] = {};
-            }
-        }
+        m_pCommon->aInitialGameData.ForEachComponent(m_iSelectedEntity.value(), c);
     }
 
     virtual Application_Result OnInput(SDL_Event const& ev) override {

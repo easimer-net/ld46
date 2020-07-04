@@ -91,3 +91,5 @@ table Knife_Projectile {
     member_function 'void BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
     member_function 'void EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
 }
+
+table Platform {}
