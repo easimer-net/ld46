@@ -19,8 +19,6 @@ m_unCameraMoveDir = (m_unCameraMoveDir & (~(x))) | (c ? (x) : 0);
 #define CAMERA_MOVEDIR_GET(x) \
 (((m_unCameraMoveDir & (x)) != 0) ? 1.0f : 0.0f)
 
-#define FILENAME_MAX_SIZ (64)
-
 struct Level_Geometry_Creation_State {
     unsigned uiStep = 0;
     lm::Vector4 avPoints[2];
@@ -41,7 +39,7 @@ class Level_Editor : public IApplication {
 public:
     Level_Editor(Common_Data* pCommon)
         : m_pCommon(pCommon),
-        m_pszLevelName{0},
+        m_flTimeSinceLastSave(0),
         m_unCameraMoveDir(0),
         m_bShowGeoLayer(false),
         m_bShowBoundingBoxes(true)
@@ -69,6 +67,34 @@ public:
         m_pCommon->vCameraPosition = m_pCommon->vCameraPosition + flDelta * vCameraMoveDir;
 
         assert(!m_geoCreate || (m_geoCreate && m_bShowGeoLayer));
+
+        m_flTimeSinceLastSave += flDelta;
+
+        if (ImGui::BeginMainMenuBar()) {
+            if (ImGui::BeginMenu("File")) {
+                if (ImGui::MenuItem("New", "CTRL-N")) {
+                    UI_NewLevel();
+                }
+                if (ImGui::BeginMenu("Open")) {
+                    if (ImGui::InputText("Name", m_pCommon->m_pszLevelName, LEVEL_FILENAME_MAX_SIZ, ImGuiInputTextFlags_EnterReturnsTrue)) {
+                        UI_LoadLevel();
+                    }
+                    ImGui::EndMenu();
+                }
+                if (ImGui::MenuItem("Save", "CTRL-S")) {
+                    UI_SaveLevel();
+                }
+                ImGui::EndMenu();
+            }
+
+            if (m_flTimeSinceLastSave < 1) {
+                ImGui::Text("Saved!");
+            } else {
+                ImGui::Text("Last saved %d seconds ago", (int)m_flTimeSinceLastSave);
+            }
+
+            ImGui::EndMainMenuBar();
+        }
 
         if (m_bShowGeoLayer) {
             for (auto const& g : m_pCommon->aLevelGeometry) {
@@ -173,48 +199,6 @@ public:
             dq.Add(dcX);
             dq.Add(dcY);
         }
-
-        // File menu
-        if (ImGui::Begin("File")) {
-            ImGui::InputText("Name", m_pszLevelName, FILENAME_MAX_SIZ);
-            if (ImGui::Button("New")) {
-                m_pszLevelName[0] = 0;
-                m_pCommon->aLevelGeometry.clear();
-                m_pCommon->aInitialGameData.Clear();
-                m_iSelectedEntity.reset();
-            }
-            if (ImGui::Button("Open")) {
-                if (strlen(m_pszLevelName) != 0) {
-                    m_pCommon->aLevelGeometry.clear();
-                    m_pCommon->aInitialGameData.Clear();
-                    m_iSelectedEntity.reset();
-                    auto const pszPathEntityData = std::string("data/") + m_pszLevelName + std::string(".ent");
-                    auto const pszPathGeoData = std::string("data/") + m_pszLevelName + std::string(".geo");
-                    LoadLevel(pszPathEntityData.c_str(), m_pCommon->aInitialGameData);
-                    LoadLevelGeometry(pszPathGeoData.c_str(), m_pCommon->aLevelGeometry);
-
-#if !defined(NDEBUG)
-                    FILE* f = fopen("last_session.txt", "wb");
-                    if (f) {
-                        fwrite(m_pszLevelName, 1, strlen(m_pszLevelName), f);
-                        fclose(f);
-                    } else {
-                        fprintf(stderr, "WARNING: failed to open last_session.txt\n");
-                    }
-#endif
-                }
-            }
-
-            if (ImGui::Button("Save")) {
-                if (strlen(m_pszLevelName) != 0) {
-                    auto const pszPathEntityData = std::string("data/") + m_pszLevelName + std::string(".ent");
-                    auto const pszPathGeoData = std::string("data/") + m_pszLevelName + std::string(".geo");
-                    SaveLevel(pszPathEntityData.c_str(), m_pCommon->aInitialGameData);
-                    SaveLevelGeometry(pszPathGeoData.c_str(), m_pCommon->aLevelGeometry);
-                }
-            }
-        }
-        ImGui::End();
 
         // Entity menu
         if (ImGui::Begin("Entity")) {
@@ -403,6 +387,17 @@ public:
 
     virtual Application_Result OnInput(SDL_Event const& ev) override {
         auto ret = k_nApplication_Result_OK;
+
+        if (ev.type == SDL_KEYUP && (ev.key.keysym.mod & KMOD_CTRL)) {
+            switch (ev.key.keysym.sym) {
+            case SDLK_n:
+                UI_NewLevel();
+                break;
+            case SDLK_s:
+                UI_SaveLevel();
+                break;
+            }
+        }
 
         if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) {
             bool bDown = ev.type == SDL_KEYDOWN;
@@ -647,13 +642,56 @@ public:
         }
     }
 
+    void UI_NewLevel() {
+        m_pCommon->m_pszLevelName[0] = 0;
+        m_pCommon->aLevelGeometry.clear();
+        m_pCommon->aInitialGameData.Clear();
+        m_iSelectedEntity.reset();
+        m_flTimeSinceLastSave = 0;
+    }
+
+    void UI_LoadLevel() {
+        auto name = m_pCommon->m_pszLevelName;
+        if (strlen(name) != 0) {
+            m_pCommon->aLevelGeometry.clear();
+            m_pCommon->aInitialGameData.Clear();
+            m_iSelectedEntity.reset();
+            auto const pszPathEntityData = std::string("data/") + name + std::string(".ent");
+            auto const pszPathGeoData = std::string("data/") + name + std::string(".geo");
+            LoadLevel(pszPathEntityData.c_str(), m_pCommon->aInitialGameData);
+            LoadLevelGeometry(pszPathGeoData.c_str(), m_pCommon->aLevelGeometry);
+            m_flTimeSinceLastSave = 0;
+
+#if !defined(NDEBUG)
+            FILE* f = fopen("last_session.txt", "wb");
+            if (f) {
+                fwrite(name, 1, strlen(name), f);
+                fclose(f);
+            } else {
+                fprintf(stderr, "WARNING: failed to open last_session.txt\n");
+            }
+#endif
+        }
+    }
+
+    void UI_SaveLevel() {
+        auto name = m_pCommon->m_pszLevelName;
+        if (strlen(name) != 0) {
+            auto const pszPathEntityData = std::string("data/") + name + std::string(".ent");
+            auto const pszPathGeoData = std::string("data/") + name + std::string(".geo");
+            SaveLevel(pszPathEntityData.c_str(), m_pCommon->aInitialGameData);
+            SaveLevelGeometry(pszPathGeoData.c_str(), m_pCommon->aLevelGeometry);
+            m_flTimeSinceLastSave = 0;
+        }
+    }
+
 private:
     Common_Data* m_pCommon;
 
     dq::Draw_Queue m_dq;
     unsigned m_unCameraMoveDir;
 
-    char m_pszLevelName[FILENAME_MAX_SIZ];
+    float m_flTimeSinceLastSave;
 
     bool m_bShowGeoLayer, m_bShowBoundingBoxes;
     Optional<Level_Geometry_Creation_State> m_geoCreate;

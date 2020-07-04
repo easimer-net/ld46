@@ -9,6 +9,8 @@
 #include <an.h>
 #include "collision.h"
 
+#define LEVEL_FILENAME_MAX_SIZ (64)
+
 struct Common_Data {
     Shader_Program hShaderGeneric, hShaderDebugRed, hShaderRect;
     gl::VAO hVAO;
@@ -23,6 +25,7 @@ struct Common_Data {
     lm::Vector4 vCursorWorldPos;
     Collision_Level_Geometry aLevelGeometry;
 
+    char m_pszLevelName[LEVEL_FILENAME_MAX_SIZ];
     Game_Data aInitialGameData, aGameData;
 };
 

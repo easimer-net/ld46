@@ -236,6 +236,7 @@ static bool LoadEngineData() {
 
         gpCommonData->aLevelGeometry.clear();
         gpCommonData->aInitialGameData.Clear();
+        strncpy(gpCommonData->m_pszLevelName, level_name, LEVEL_FILENAME_MAX_SIZ - 1);
         char pathBuf[152];
         snprintf(pathBuf, 151, "data/%s.ent", level_name);
         LoadLevel(pathBuf, gpCommonData->aInitialGameData);
