@@ -32,6 +32,7 @@ table Phys_Static {
 table Phys_Dynamic {
     density : float;
     friction : float;
+    inhibitRotation : bool;
 
 #not_owning
     body: *b2Body;

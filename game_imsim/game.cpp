@@ -199,6 +199,7 @@ public:
             b2FixtureDef fixtureDef;
             bodyDef.type = b2_dynamicBody;
             bodyDef.position.Set(ent.position[0], ent.position[1]);
+            bodyDef.fixedRotation = phys.inhibitRotation;
             shape.SetAsBox(ent.size[0] / 2, ent.size[1] / 2);
             phys.body = m_physWorld.CreateBody(&bodyDef);
             phys.body->SetUserData((void*)kvPhys.first);
@@ -372,7 +373,7 @@ public:
         DestroyPhysicalObject(phys);
     }
 
-    void AttachPhysDynamic(Entity_ID id, float density, float friction) {
+    void AttachPhysDynamic(Entity_ID id, float density, float friction, bool inhibitRotation) {
         Phys_Dynamic p;
         b2BodyDef bodyDef = {};
         b2FixtureDef fixtureDef = {};
@@ -382,6 +383,7 @@ public:
 
         bodyDef.type = b2_dynamicBody;
         bodyDef.position.Set(ent.position[0], ent.position[1]);
+        bodyDef.fixedRotation = inhibitRotation;
         shape.SetAsBox(ent.size[0] / 2, ent.size[1] / 2);
 
         p.density = density;
@@ -426,7 +428,7 @@ public:
             player.vLookDir = lm::Vector4(1, 0);
             game_data.players[ret] = player;
 
-            game_data.phys_dynamics[ret] = { 1.0, 0.3f };
+            game_data.phys_dynamics[ret] = { 1.0, 0.3f, true };
 
             /*
             game_data.animated[ret] = {
@@ -494,7 +496,7 @@ public:
         proj.game_data = &aGameData;
         aGameData.knife_projectiles[id] = proj;
         aGameData.expiring[id] = { KNIFE_LIFETIME };
-        AttachPhysDynamic(id, 1.0f, 0.3f);
+        AttachPhysDynamic(id, 1.0f, 0.3f, false);
         aGameData.phys_dynamics[id].body->ApplyLinearImpulseToCenter(0.20f * b2Vec2(x_dir / abs(x_dir), 0), true);
     }
 
@@ -859,6 +861,29 @@ public:
                 auto& n = m_ai_nodes[n_idx];
                 DbgLine(node.x, node.y, n.x, n.y);
             }
+        }
+        VisualizeColliders();
+    }
+
+    void VisualizeColliders() {
+        auto cur = m_physWorld.GetBodyList();
+        while (cur != NULL) {
+            auto fixture = cur->GetFixtureList();
+            while (fixture != NULL) {
+                auto shape = fixture->GetShape();
+                auto n = shape->GetChildCount();
+                for (auto i = 0; i < n; i++) {
+                    b2AABB bb;
+                    b2Transform t = cur->GetTransform();
+                    shape->ComputeAABB(&bb, t, i);
+                    DbgLine(bb.lowerBound.x, bb.lowerBound.y, bb.lowerBound.x, bb.upperBound.y);
+                    DbgLine(bb.lowerBound.x, bb.lowerBound.y, bb.upperBound.x, bb.lowerBound.y);
+                    DbgLine(bb.upperBound.x, bb.upperBound.y, bb.lowerBound.x, bb.upperBound.y);
+                    DbgLine(bb.upperBound.x, bb.upperBound.y, bb.upperBound.x, bb.lowerBound.y);
+                }
+                fixture = fixture->GetNext();
+            }
+            cur = cur->GetNext();
         }
     }
 

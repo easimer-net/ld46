@@ -342,6 +342,7 @@ public:
                     ImGui::Text("Phys_Dynamic");
                     ImGui::InputFloat("Density", &data->density);
                     ImGui::InputFloat("Friction", &data->density);
+                    ImGui::Checkbox("Inhibit rotation", &data->inhibitRotation);
                     double const flMass = (((double)data->density) * ent->size[0]) * ent->size[1];
                     ImGui::Text("Mass: %f", flMass);
                     ImGui::Separator();
