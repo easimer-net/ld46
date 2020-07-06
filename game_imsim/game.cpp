@@ -141,7 +141,8 @@ public:
         m_unPlayerMoveDir(0),
         m_pszConBuf{0},
         m_physWorld({ 0, -10 }),
-        m_contact_listener(&pCommon->aGameData)
+        m_contact_listener(&pCommon->aGameData),
+        m_path_finding(CreatePathFinding(pCommon, &m_physWorld))
     {
         m_pCommon->aGameData = m_pCommon->aInitialGameData;
 
@@ -211,6 +212,7 @@ public:
     }
 
     virtual Application_Result Release() override {
+        m_path_finding->Release();
         delete this;
         return k_nApplication_Result_OK;
     }
@@ -221,6 +223,7 @@ public:
 
     virtual Application_Result OnPreFrame(float flDelta) override {
         m_physWorld.Step(flDelta, 6, 2);
+        m_path_finding->PreFrame(flDelta);
 
         MainLogic(flDelta);
         return k_nApplication_Result_OK;
@@ -617,7 +620,6 @@ public:
         return dx * dx + dy * dy;
     }
 
-
     void EnemyLogic(float flDelta, Game_Data& aGameData) {
         Set<Entity_ID> targets;
 
@@ -662,9 +664,9 @@ public:
 
                     auto dx = pf.gx - ent.position[0];
                     auto dy = pf.gy - ent.position[1];
-                    auto v = b2Vec2(dx, dy);
+                    auto v = b2Vec2(dx, 0.01);
                     v.Normalize();
-                    phys.body->ApplyLinearImpulseToCenter(flDelta * v, true);
+                    phys.body->ApplyForceToCenter(2 * v, true);
                 }
             }
         }
@@ -829,48 +831,13 @@ public:
     }
 
     bool FindPathTo(float& nx, float& ny, float sx, float sy, float tx, float ty) {
-        if (m_ai_nodes.size() == 0) {
-            CreateNodeGraph(4);
-        }
-
-        return PF_FindPathTo(m_ai_nodes, nx, ny, sx, sy, tx, ty);
-    }
-
-    static float dist(PF_Node const& lhs, PF_Node const& rhs) {
-        auto dx = rhs.x - lhs.x;
-        auto dy = rhs.y - lhs.y;
-        return sqrt(dx * dx + dy * dy);
-    }
-
-    void CreateNodeGraph(float flDistThreshold) {
-        auto& aGameData = m_pCommon->aGameData;
-        for (auto& kvPlatform : aGameData.platforms) {
-            auto& ent = aGameData.entities[kvPlatform.first];
-            auto& plat = kvPlatform.second;
-
-            PF_Node node = { ent.position[0], ent.position[1], {} };
-            // my index
-            auto idx = m_ai_nodes.size();
-
-            for (auto i = 0ull; i < m_ai_nodes.size(); i++) {
-                auto& pot_neighbor = m_ai_nodes[i];
-                if(dist(pot_neighbor, node) < flDistThreshold) {
-                    node.neighbors.insert(i);
-                    pot_neighbor.neighbors.insert(idx);
-                }
-            }
-
-            m_ai_nodes.push_back(std::move(node));
-        }
+        return m_path_finding->FindPathTo(nx, ny, sx, sy, tx, ty);
     }
 
     void VisualizeNodeGraph() {
-        for (auto& node : m_ai_nodes) {
-            for (auto& n_idx : node.neighbors) {
-                auto& n = m_ai_nodes[n_idx];
-                DbgLine(node.x, node.y, n.x, n.y);
-            }
-        }
+        m_path_finding->IterateNodes([=](float x0, float y0, float x1, float y1) {
+            DbgLine(x0, y0, x1, y1);
+        });
         VisualizeColliders();
     }
 
@@ -901,7 +868,11 @@ private:
     Animation_Collection m_hAnimPlayer;
     dq::Draw_Queue m_dq;
     char m_pszConBuf[CONSOLE_BUFFER_SIZ];
+
+    /*
+    unsigned m_ai_nodes_age = 0xFFFFFFFF;
     Vector<PF_Node> m_ai_nodes;
+    */
 
     unsigned m_unPlayerMoveDir;
     bool m_bPlayerUse;
@@ -911,6 +882,8 @@ private:
 
     b2World m_physWorld;
     ContactListener m_contact_listener;
+
+    IPath_Finding* m_path_finding;
 
     Rand_Float m_rand;
 };
