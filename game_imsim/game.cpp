@@ -20,10 +20,14 @@
 #include <functional>
 #include <unordered_set>
 #include <random>
+#include <queue>
 #include <box2d/box2d.h>
+#include "path_finding.h"
 
 template<typename T>
 using Set = std::unordered_set<T>;
+
+template<typename T> using Vector = std::vector<T>;
 
 #define PLAYER_MOVEDIR_RIGHT    (0x1)
 #define PLAYER_MOVEDIR_UP       (0x2)
@@ -604,19 +608,53 @@ public:
         }
     }
 
-    void CollectAllColliders(Game_Data const& aGameData) {
-        m_colliders.clear();
+    float distSq(Entity const& lhs, Entity const& rhs) {
+        auto dx = rhs.position[0] - lhs.position[0];
+        auto dy = rhs.position[1] - lhs.position[1];
 
-        for(uint32_t i = 0; i < aGameData.entities.size(); i++) {
-            auto& ent = aGameData.entities[i];
-            if (ent.bUsed) {
-                if (ent.bHasCollider) {
-                    Collision_AABB_Entity bb;
-                    auto vHalfSize = ent.size / 2;
-                    bb.id = i;
-                    bb.min = ent.position - vHalfSize;
-                    bb.max = ent.position + vHalfSize;
-                    m_colliders.push_back(bb);
+        return dx * dx + dy * dy;
+    }
+
+
+    void EnemyLogic(float flDelta, Game_Data& aGameData) {
+        Set<Entity_ID> targets;
+
+        for (auto& kvPlayer : aGameData.players) {
+            targets.insert(kvPlayer.first);
+        }
+
+        if (!targets.empty()) {
+            for (auto& kvEnemy : aGameData.enemies) {
+                auto& entEnemy = aGameData.entities[kvEnemy.first];
+                Entity_ID target = -1;
+                float target_dist = INFINITY;
+
+                for (auto other : targets) {
+                    auto& entTarget = aGameData.entities[other];
+                    auto dist = distSq(entEnemy, entTarget);
+                    if (dist < target_dist) {
+                        target_dist = dist;
+                        target = other;
+                    }
+                }
+
+                assert(target != -1);
+
+                auto& enemy = kvEnemy.second;
+                auto& entTarget = aGameData.entities[target];
+                auto res =
+                    FindPathTo(enemy.gx, enemy.gy, entEnemy.position[0], entEnemy.position[1], entTarget.position[0], entTarget.position[1]);
+                if (res) {
+                    if (aGameData.phys_dynamics.count(kvEnemy.first)) {
+                        auto& phys = aGameData.phys_dynamics[kvEnemy.first];
+                        auto dx = enemy.gx - entEnemy.position[0];
+                        auto dy = enemy.gy - entEnemy.position[1];
+                        auto v = b2Vec2(dx, dy);
+                        v.Normalize();
+                        phys.body->ApplyLinearImpulseToCenter(flDelta * v, true);
+                    }
+                } else {
+                    printf("Enemy %zu couldn't find path to player!\n", kvEnemy.first);
                 }
             }
         }
@@ -625,11 +663,10 @@ public:
     void MainLogic(float flDelta) {
         auto& dq = m_dq;
         auto& aGameData = m_pCommon->aGameData;
-        CollectAllColliders(aGameData);
 
         PhysicsLogic(flDelta, aGameData);
-
         PlayerLogic(flDelta, aGameData);
+        EnemyLogic(flDelta, aGameData);
 
         // Living
         Set<Entity_ID> diedEntities;
@@ -713,8 +750,7 @@ public:
 #ifdef _DEBUG
         if (ImGui::Begin("Console")) {
             ImGui::SameLine();
-            ImGui::InputText(">", m_pszConBuf, CONSOLE_BUFFER_SIZ);
-            if (ImGui::Button("Send")) {
+            if (ImGui::InputText(">", m_pszConBuf, CONSOLE_BUFFER_SIZ, ImGuiInputTextFlags_EnterReturnsTrue)) {
                 auto const pszSpace = strchr(m_pszConBuf, ' ');
                 if (pszSpace != NULL) {
                     *pszSpace = 0;
@@ -725,7 +761,7 @@ public:
                 m_pszConBuf[0] = 0;
             }
 
-            ImGui::Text("Help:\nui_entdbg 0/1\nr_visgeo 0/1\n");
+            ImGui::Text("Help:\nr_visnodes - visualize node graph\nui_physprof - show physics profile\nui_entdbg - entity debug\n");
         }
         ImGui::End();
 #endif
@@ -775,6 +811,55 @@ public:
             }
             ImGui::End();
         }
+
+        if (Convar_Get("r_visnodes")) {
+            VisualizeNodeGraph();
+        }
+    }
+
+    bool FindPathTo(float& nx, float& ny, float sx, float sy, float tx, float ty) {
+        if (m_ai_nodes.size() == 0) {
+            CreateNodeGraph(4);
+        }
+
+        return PF_FindPathTo(m_ai_nodes, nx, ny, sx, sy, tx, ty);
+    }
+
+    static float dist(PF_Node const& lhs, PF_Node const& rhs) {
+        auto dx = rhs.x - lhs.x;
+        auto dy = rhs.y - lhs.y;
+        return sqrt(dx * dx + dy * dy);
+    }
+
+    void CreateNodeGraph(float flDistThreshold) {
+        auto& aGameData = m_pCommon->aGameData;
+        for (auto& kvPlatform : aGameData.platforms) {
+            auto& ent = aGameData.entities[kvPlatform.first];
+            auto& plat = kvPlatform.second;
+
+            PF_Node node = { ent.position[0], ent.position[1], {} };
+            // my index
+            auto idx = m_ai_nodes.size();
+
+            for (auto i = 0ull; i < m_ai_nodes.size(); i++) {
+                auto& pot_neighbor = m_ai_nodes[i];
+                if(dist(pot_neighbor, node) < flDistThreshold) {
+                    node.neighbors.insert(i);
+                    pot_neighbor.neighbors.insert(idx);
+                }
+            }
+
+            m_ai_nodes.push_back(std::move(node));
+        }
+    }
+
+    void VisualizeNodeGraph() {
+        for (auto& node : m_ai_nodes) {
+            for (auto& n_idx : node.neighbors) {
+                auto& n = m_ai_nodes[n_idx];
+                DbgLine(node.x, node.y, n.x, n.y);
+            }
+        }
     }
 
 private:
@@ -782,8 +867,7 @@ private:
     Animation_Collection m_hAnimPlayer;
     dq::Draw_Queue m_dq;
     char m_pszConBuf[CONSOLE_BUFFER_SIZ];
-
-    std::vector<Collision_AABB_Entity> m_colliders;
+    Vector<PF_Node> m_ai_nodes;
 
     unsigned m_unPlayerMoveDir;
     bool m_bPlayerUse;

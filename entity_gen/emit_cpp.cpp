@@ -111,6 +111,8 @@ static bool DoesTableImplementInterface(Top const& top, Table_Definition const& 
     return false;
 }
 
+#define C(f, ...) out->Printf(f, __VA_ARGS__)
+
 void GenerateHeaderFile(IOutput* out, Top const& top) {
     auto& tables = top.table_defs;
 
@@ -215,6 +217,29 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     }
     out->Printf(TAB2 "entities[i].bUsed = false;\n");
     out->Printf(TAB "}\n");
+
+    // Entity duplication
+    C(TAB  "/**\n");
+    C(TAB  " * Duplicate an entity\n");
+    C(TAB  " * WARNING: this will copy the field values as-is\n");
+    C(TAB  " */\n");
+    C(TAB  "Entity_ID Copy(Entity_ID id, Entity_ID orig_id) {\n");
+    for (auto& table : tables) {
+        if ((table.flags & k_unTableFlags_Interface) == 0) {
+            if (table.name != "Entity") {
+                auto name = table.name.c_str();
+                auto var_name = table.var_name.c_str();
+                C(TAB2 "if(%s.count(orig_id)) {\n", var_name);
+                C(TAB3 "%s[id] = %s[orig_id];\n", var_name, var_name);
+                C(TAB2 "}\n");
+            } else {
+                // Entity table
+                C(TAB2 "entities[id] = entities[orig_id];\n");
+            }
+        }
+    }
+    C(TAB2 "return id;\n");
+    C(TAB  "}\n");
 
     out->Printf(TAB "template<typename T> std::vector<T*> GetInterfaceImplementations(Entity_ID id);\n\n");
 

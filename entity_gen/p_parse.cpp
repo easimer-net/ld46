@@ -240,13 +240,17 @@ static Table_Definition ParseTable(Token_Stream_Iterator& it) {
     ASSERT_TOKEN_KIND(k_unToken_Curly_Close);
     it++;
 
-    if (def.var_name.size() == 0) {
-        def.var_name = def.name + 's';
-        ToLower(def.var_name);
+    if (def.name != "Entity") {
+        if (def.var_name.size() == 0) {
+            def.var_name = def.name + 's';
+            ToLower(def.var_name);
+        }
     } else {
-        if (def.name == "Entity") {
+        if (def.var_name.size() != 0) {
             fprintf(stderr, "Warning: custom var_name on Entity table is ignored\n");
         }
+
+        def.var_name = "entities";
     }
 
     return def;

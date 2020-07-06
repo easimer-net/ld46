@@ -18,6 +18,8 @@ set(SRC
 	editor.cpp
 	draw_queue.cpp
 	collision_handling.cpp
+	path_finding.cpp
+	path_finding.h
 )
 
 if(MSVC)

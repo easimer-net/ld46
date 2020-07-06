@@ -93,3 +93,10 @@ table Knife_Projectile {
 }
 
 table Platform {}
+
+table Enemy enemies {
+#memory_only
+    gx : float;
+#memory_only
+    gy : float;
+}

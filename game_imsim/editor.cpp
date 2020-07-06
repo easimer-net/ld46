@@ -66,8 +66,6 @@ public:
 
         m_pCommon->vCameraPosition = m_pCommon->vCameraPosition + flDelta * vCameraMoveDir;
 
-        assert(!m_geoCreate || (m_geoCreate && m_bShowGeoLayer));
-
         m_flTimeSinceLastSave += flDelta;
 
         if (ImGui::BeginMainMenuBar()) {
@@ -83,6 +81,12 @@ public:
                 }
                 if (ImGui::MenuItem("Save", "CTRL-S")) {
                     UI_SaveLevel();
+                }
+                if (ImGui::BeginMenu("Save as...")) {
+                    if (ImGui::InputText("Name", m_pCommon->m_pszLevelName, LEVEL_FILENAME_MAX_SIZ, ImGuiInputTextFlags_EnterReturnsTrue)) {
+                        UI_SaveLevel();
+                    }
+                    ImGui::EndMenu();
                 }
                 ImGui::EndMenu();
             }
@@ -100,25 +104,6 @@ public:
             }
 
             ImGui::EndMainMenuBar();
-        }
-
-        if (m_bShowGeoLayer) {
-            for (auto const& g : m_pCommon->aLevelGeometry) {
-                dq::Draw_Rect_Params dc;
-                dc.x0 = g.min[0];
-                dc.y0 = g.min[1];
-                dc.x1 = g.max[0];
-                dc.y1 = g.max[1];
-                dc.r = dc.g = dc.b = dc.a = 1.0f;
-                DQ_ANNOTATE(dc);
-                dq.Add(dc);
-            }
-
-            if (m_geoCreate) {
-                for (auto i = 1; i < m_geoCreate->uiStep; i++) {
-                    DbgLine(m_geoCreate->avPoints[i], m_geoCreate->avPoints[(i + 1) % 2]);
-                }
-            }
         }
 
         for (auto const& kv : gameData.player_spawns) {
@@ -169,7 +154,7 @@ public:
         }
         if (m_bShowBoundingBoxes) {
             dq::Draw_Rect_Params dc;
-            for (auto const& ent: gameData.entities) {
+            for (auto const& ent : gameData.entities) {
                 if (ent.bUsed) {
                     auto const size = CalculateEntityPickerSize(ent.size);
                     auto const flHalfWidth = size[0] / 2;
@@ -208,12 +193,6 @@ public:
 
         // Entity menu
         if (ImGui::Begin("Entity")) {
-            if(m_bShowGeoLayer) {
-                if (ImGui::Button("Create")) {
-                    m_geoCreate = Level_Geometry_Creation_State();
-                }
-                ImGui::Separator();
-            }
             ImGui::Text("Templates");
             if (ImGui::Button("Empty")) {
                 auto iEnt = AllocateEntity();
@@ -248,6 +227,11 @@ public:
                 ImGui::SameLine();
                 if (ImGui::Button("Delete")) {
                     bDelete = true;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Duplicate")) {
+                    auto id = AllocateEntity();
+                    m_iSelectedEntity = gameData.Copy(id, m_iSelectedEntity.value());
                 }
                 ImGui::InputFloat2("Position", ent.position.m_flValues);
                 ImGui::InputFloat2("Size", ent.size.m_flValues);
@@ -366,6 +350,26 @@ public:
                     return ImGui::Button("Make physical (dynamic)");
                 }
             }
+            EDIT_COMPONENT(Enemy) {
+                if (data != NULL) {
+                    ImGui::Separator();
+                    ImGui::Text("Enemy");
+                    ImGui::Separator();
+                    return false;
+                } else {
+                    return ImGui::Button("Make enemy");
+                }
+            }
+            EDIT_COMPONENT(Platform) {
+                if (data != NULL) {
+                    ImGui::Separator();
+                    ImGui::Text("Platform");
+                    ImGui::Separator();
+                    return false;
+                } else {
+                    return ImGui::Button("Make platform");
+                }
+            }
             CATCH_ALL()
         END_COMPONENT_EDITOR()
 
@@ -405,9 +409,6 @@ public:
                 ret = k_nApplication_Result_SwitchEngineMode;
                 break;
             case SDLK_ESCAPE:
-                if (m_geoCreate) {
-                    m_geoCreate.reset();
-                }
                 break;
             }
         } else if (ev.type == SDL_MOUSEWHEEL) {
@@ -455,13 +456,7 @@ public:
                 0, 1);
             m_pCommon->vCursorWorldPos = m_pCommon->matInvProj * vNdcPos;
 
-            if (m_geoCreate) {
-                if (m_geoCreate->Put(m_pCommon->vCursorWorldPos)) {
-                    CreateDrawnGeo();
-                }
-            } else {
-                PickEntity();
-            }
+            PickEntity();
         }
 
         return ret;
@@ -505,18 +500,6 @@ public:
     // Draws a debug line
     void DbgLine(lm::Vector4 p0, lm::Vector4 p1) {
         DbgLine(p0[0], p0[1], p1[0], p1[1]);
-    }
-
-    void CreateDrawnGeo() {
-        assert(m_geoCreate.has_value());
-        assert(m_geoCreate->uiStep == 2);
-        auto& points = m_geoCreate->avPoints;
-        float minX = std::fmin(points[0][0], points[1][0]);
-        float minY = std::fmin(points[0][1], points[1][1]);
-        float maxX = std::fmax(points[0][0], points[1][0]);
-        float maxY = std::fmax(points[0][1], points[1][1]);
-        m_pCommon->aLevelGeometry.push_back({ {minX, minY}, {maxX, maxY} });
-        m_geoCreate.reset();
     }
 
     // Creates a new empty entity and places it into aInitialGameData
@@ -681,7 +664,6 @@ private:
     float m_flTimeSinceLastSave;
 
     bool m_bShowGeoLayer, m_bShowBoundingBoxes;
-    Optional<Level_Geometry_Creation_State> m_geoCreate;
     Optional<Entity_ID> m_iSelectedEntity;
 };
 
