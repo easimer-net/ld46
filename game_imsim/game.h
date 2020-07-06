@@ -8,19 +8,23 @@
 
 struct Component_Deleter {
     void operator()(Game_Data* pGameData, Entity_ID id, Phys_Static* phys) {
-        phys->body->DestroyFixture(phys->fixture);
-        phys->world->DestroyBody(phys->body);
-        phys->world = NULL;
-        phys->fixture = NULL;
-        phys->body = NULL;
+        if (phys->fixture != NULL) {
+            phys->body->DestroyFixture(phys->fixture);
+            phys->world->DestroyBody(phys->body);
+            phys->world = NULL;
+            phys->fixture = NULL;
+            phys->body = NULL;
+        }
     }
 
     void operator()(Game_Data* pGameData, Entity_ID id, Phys_Dynamic* phys) {
-        phys->body->DestroyFixture(phys->fixture);
-        phys->world->DestroyBody(phys->body);
-        phys->world = NULL;
-        phys->fixture = NULL;
-        phys->body = NULL;
+        if (phys->fixture != NULL) {
+            phys->body->DestroyFixture(phys->fixture);
+            phys->world->DestroyBody(phys->body);
+            phys->world = NULL;
+            phys->fixture = NULL;
+            phys->body = NULL;
+        }
     }
 
     void operator()(...) {}

@@ -183,9 +183,11 @@ public:
             // TODO(danielm): for static stuff we don't need a body-fixture pair
             // for every entity; we could just create a single body ("the world")
             // and attach the per-entity fixtures to that
+            kvPhys.second.markedForDelete = false;
             Initialize(kvPhys.first, kvPhys.second);
         }
         for (auto& kvPhys : m_pCommon->aGameData.phys_dynamics) {
+            kvPhys.second.markedForDelete = false;
             Initialize(kvPhys.first, kvPhys.second);
         }
     }
@@ -322,31 +324,42 @@ public:
         return ret;
     }
 
+    template<typename T> void RemoveComponent(Entity_ID id);
+
+    template<> void RemoveComponent<Phys_Dynamic>(Entity_ID id) {
+        auto& phys = m_pCommon->aGameData.phys_dynamics[id];
+
+        phys.body->DestroyFixture(phys.fixture);
+        phys.world->DestroyBody(phys.body);
+        phys.world = NULL;
+        phys.body = NULL;
+        phys.fixture = NULL;
+    }
+
+    template<> void RemoveComponent<Phys_Static>(Entity_ID id) {
+        auto& phys = m_pCommon->aGameData.phys_statics[id];
+
+        phys.body->DestroyFixture(phys.fixture);
+        phys.world->DestroyBody(phys.body);
+        phys.world = NULL;
+        phys.body = NULL;
+        phys.fixture = NULL;
+    }
+
     // Delete an entity
     void DeleteEntity(Entity_ID id) {
         auto& aGameData = m_pCommon->aGameData;
         if (aGameData.phys_statics.count(id)) {
             auto& phys = aGameData.phys_statics[id];
-            PreRemove(&aGameData, id, &phys);
+            RemoveComponent<Phys_Static>(id);
         }
         if (aGameData.phys_dynamics.count(id)) {
             auto& phys = aGameData.phys_dynamics[id];
-            PreRemove(&aGameData, id, &phys);
+            RemoveComponent<Phys_Dynamic>(id);
         }
         m_pCommon->aGameData.DeleteEntity<Component_Deleter>(id);
     }
 
-    template<typename T> void RemoveComponent(Entity_ID id);
-
-    template<> void RemoveComponent<Phys_Dynamic>(Entity_ID id) {
-        auto& phys = m_pCommon->aGameData.phys_dynamics[id];
-        PreRemove(&m_pCommon->aGameData, id, &phys);
-    }
-
-    template<> void RemoveComponent<Phys_Static>(Entity_ID id) {
-        auto& phys = m_pCommon->aGameData.phys_statics[id];
-        PreRemove(&m_pCommon->aGameData, id, &phys);
-    }
 
     void AttachPhysDynamic(Entity_ID id, float density, float friction, bool inhibitRotation) {
         Phys_Dynamic p;
@@ -477,6 +490,7 @@ public:
 
             if (phys.markedForDelete) {
                 RemoveComponent<Phys_Dynamic>(iEnt);
+                aGameData.GetComponents<Phys_Dynamic>().erase(iEnt);
             }
         }
     }

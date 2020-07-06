@@ -36,7 +36,6 @@ table Phys_Static {
 }
 
 table Phys_Dynamic {
-    markedForDelete : bool;
     density : float;
     friction : float;
     inhibitRotation : bool;
@@ -47,6 +46,8 @@ table Phys_Dynamic {
     body: *b2Body;
 #not_owning
     fixture: *b2Fixture;
+
+    markedForDelete : bool;
 }
 
 table Living living {
