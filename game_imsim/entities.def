@@ -95,9 +95,14 @@ table Knife_Projectile {
 
 table Platform {}
 
-table Enemy enemies {
+table Enemy_Pathfinder {
+#memory_only
+    pathFound : bool;
 #memory_only
     gx : float;
 #memory_only
     gy : float;
+}
+
+table Terrestrial_NPC {
 }

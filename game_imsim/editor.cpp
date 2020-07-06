@@ -351,14 +351,14 @@ public:
                     return ImGui::Button("Make physical (dynamic)");
                 }
             }
-            EDIT_COMPONENT(Enemy) {
+            EDIT_COMPONENT(Enemy_Pathfinder) {
                 if (data != NULL) {
                     ImGui::Separator();
-                    ImGui::Text("Enemy");
+                    ImGui::Text("Enemy pathfinder");
                     ImGui::Separator();
                     return false;
                 } else {
-                    return ImGui::Button("Make enemy");
+                    return ImGui::Button("Make enemy pathfinder");
                 }
             }
             EDIT_COMPONENT(Platform) {
@@ -369,6 +369,13 @@ public:
                     return false;
                 } else {
                     return ImGui::Button("Make platform");
+                }
+            }
+            EDIT_COMPONENT(Terrestrial_NPC) {
+                if (data != NULL) {
+                    return false;
+                } else {
+                    return ImGui::Button("Make terrestrial NPC");
                 }
             }
             CATCH_ALL()

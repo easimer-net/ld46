@@ -626,7 +626,7 @@ public:
         }
 
         if (!targets.empty()) {
-            for (auto& kvEnemy : aGameData.enemies) {
+            for (auto& kvEnemy : aGameData.enemy_pathfinders) {
                 auto& entEnemy = aGameData.entities[kvEnemy.first];
                 Entity_ID target = -1;
                 float target_dist = INFINITY;
@@ -646,17 +646,25 @@ public:
                 auto& entTarget = aGameData.entities[target];
                 auto res =
                     FindPathTo(enemy.gx, enemy.gy, entEnemy.position[0], entEnemy.position[1], entTarget.position[0], entTarget.position[1]);
-                if (res) {
-                    if (aGameData.phys_dynamics.count(kvEnemy.first)) {
-                        auto& phys = aGameData.phys_dynamics[kvEnemy.first];
-                        auto dx = enemy.gx - entEnemy.position[0];
-                        auto dy = enemy.gy - entEnemy.position[1];
-                        auto v = b2Vec2(dx, dy);
-                        v.Normalize();
-                        phys.body->ApplyLinearImpulseToCenter(flDelta * v, true);
-                    }
-                } else {
-                    printf("Enemy %zu couldn't find path to player!\n", kvEnemy.first);
+                enemy.pathFound = res;
+            }
+        }
+    }
+
+    void TerrestrialNPCLogic(float flDelta, Game_Data& aGameData) {
+        for (auto& kvNPC : aGameData.terrestrial_npcs) {
+            auto id = kvNPC.first;
+            auto& ent = aGameData.entities[id];
+            if (aGameData.enemy_pathfinders.count(id) && aGameData.phys_dynamics.count(id)) {
+                auto& pf = aGameData.enemy_pathfinders[id];
+                if (pf.pathFound) {
+                    auto& phys = aGameData.phys_dynamics[id];
+
+                    auto dx = pf.gx - ent.position[0];
+                    auto dy = pf.gy - ent.position[1];
+                    auto v = b2Vec2(dx, dy);
+                    v.Normalize();
+                    phys.body->ApplyLinearImpulseToCenter(flDelta * v, true);
                 }
             }
         }
@@ -669,6 +677,7 @@ public:
         PhysicsLogic(flDelta, aGameData);
         PlayerLogic(flDelta, aGameData);
         EnemyLogic(flDelta, aGameData);
+        TerrestrialNPCLogic(flDelta, aGameData);
 
         // Living
         Set<Entity_ID> diedEntities;
