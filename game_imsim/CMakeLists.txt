@@ -15,6 +15,7 @@ set(SRC
 	entry.cpp
 	# game_core.cpp
 	game.cpp
+	game.h
 	editor.cpp
 	draw_queue.cpp
 	collision_handling.cpp

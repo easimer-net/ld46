@@ -11,8 +11,7 @@ template<typename T> using Optional = std::optional<T>;
 #define TABLE_COLLECTION()                                                  \
     template<typename T> T* CreateInTable(Entity_ID id);                    \
     template<typename V> using Vector = std::vector<V>;                     \
-    template<typename K, typename V> using Map = std::unordered_map<K, V>;  \
-    template<typename V> using E_Map = Map<Entity_ID, V>;
+    template<typename K, typename V> using Map = std::unordered_map<K, V>;
 
 #define ADD_TABLE(name, type)               \
 E_Map<type> name;

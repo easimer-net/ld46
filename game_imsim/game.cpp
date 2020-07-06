@@ -11,6 +11,7 @@
 #include <utils/gl.h>
 #include "draw_queue.h"
 #include "shaders.h"
+#include "game.h"
 #include "an.h"
 #include "collision.h"
 #include "animator.h"
@@ -179,35 +180,13 @@ public:
 
         // Physics objects
         for (auto& kvPhys : m_pCommon->aGameData.phys_statics) {
-            auto& phys = kvPhys.second;
-            auto& ent = m_pCommon->aGameData.entities[kvPhys.first];
-            b2BodyDef bodyDef;
-            b2PolygonShape shape;
-            bodyDef.position.Set(ent.position[0], ent.position[1]);
-            shape.SetAsBox(ent.size[0] / 2, ent.size[1] / 2);
             // TODO(danielm): for static stuff we don't need a body-fixture pair
             // for every entity; we could just create a single body ("the world")
             // and attach the per-entity fixtures to that
-            phys.body = m_physWorld.CreateBody(&bodyDef);
-            phys.body->SetUserData((void*)kvPhys.first);
-            phys.fixture = phys.body->CreateFixture(&shape, 0.0f);
+            Initialize(kvPhys.first, kvPhys.second);
         }
         for (auto& kvPhys : m_pCommon->aGameData.phys_dynamics) {
-            auto& phys = kvPhys.second;
-            auto& ent = m_pCommon->aGameData.entities[kvPhys.first];
-            b2BodyDef bodyDef;
-            b2PolygonShape shape;
-            b2FixtureDef fixtureDef;
-            bodyDef.type = b2_dynamicBody;
-            bodyDef.position.Set(ent.position[0], ent.position[1]);
-            bodyDef.fixedRotation = phys.inhibitRotation;
-            shape.SetAsBox(ent.size[0] / 2, ent.size[1] / 2);
-            phys.body = m_physWorld.CreateBody(&bodyDef);
-            phys.body->SetUserData((void*)kvPhys.first);
-            fixtureDef.shape = &shape;
-            fixtureDef.density = phys.density;
-            fixtureDef.friction = phys.friction;
-            phys.fixture = phys.body->CreateFixture(&fixtureDef);
+            Initialize(kvPhys.first, kvPhys.second);
         }
     }
 
@@ -343,62 +322,41 @@ public:
         return ret;
     }
 
-    template<typename T> void DestroyPhysicalObject(T& phys) {
-        phys.body->DestroyFixture(phys.fixture);
-        m_physWorld.DestroyBody(phys.body);
-        phys.fixture = NULL;
-        phys.body = NULL;
-    }
-
     // Delete an entity
     void DeleteEntity(Entity_ID id) {
         auto& aGameData = m_pCommon->aGameData;
         if (aGameData.phys_statics.count(id)) {
             auto& phys = aGameData.phys_statics[id];
-            DestroyPhysicalObject(phys);
+            PreRemove(&aGameData, id, &phys);
         }
         if (aGameData.phys_dynamics.count(id)) {
             auto& phys = aGameData.phys_dynamics[id];
-            DestroyPhysicalObject(phys);
+            PreRemove(&aGameData, id, &phys);
         }
-        m_pCommon->aGameData.DeleteEntity(id);
+        m_pCommon->aGameData.DeleteEntity<Component_Deleter>(id);
     }
 
     template<typename T> void RemoveComponent(Entity_ID id);
 
     template<> void RemoveComponent<Phys_Dynamic>(Entity_ID id) {
         auto& phys = m_pCommon->aGameData.phys_dynamics[id];
-        DestroyPhysicalObject(phys);
+        PreRemove(&m_pCommon->aGameData, id, &phys);
     }
 
     template<> void RemoveComponent<Phys_Static>(Entity_ID id) {
         auto& phys = m_pCommon->aGameData.phys_statics[id];
-        DestroyPhysicalObject(phys);
+        PreRemove(&m_pCommon->aGameData, id, &phys);
     }
 
     void AttachPhysDynamic(Entity_ID id, float density, float friction, bool inhibitRotation) {
         Phys_Dynamic p;
-        b2BodyDef bodyDef = {};
-        b2FixtureDef fixtureDef = {};
-        b2PolygonShape shape;
-
-        auto& ent = m_pCommon->aGameData.entities[id];
-
-        bodyDef.type = b2_dynamicBody;
-        bodyDef.position.Set(ent.position[0], ent.position[1]);
-        bodyDef.fixedRotation = inhibitRotation;
-        shape.SetAsBox(ent.size[0] / 2, ent.size[1] / 2);
 
         p.density = density;
         p.friction = friction;
         p.self_id = id;
+        p.inhibitRotation = inhibitRotation;
 
-        p.body = m_physWorld.CreateBody(&bodyDef);
-        p.body->SetUserData((void*)id);
-        fixtureDef.shape = &shape;
-        fixtureDef.density = density;
-        fixtureDef.friction = friction;
-        p.fixture = p.body->CreateFixture(&fixtureDef);
+        Initialize(id, p);
         m_pCommon->aGameData.phys_dynamics[id] = p;
     }
 
@@ -515,6 +473,10 @@ public:
                 auto physRot = phys.body->GetAngle();
                 ent.position = { physPos.x, physPos.y };
                 ent.flRotation = physRot;
+            }
+
+            if (phys.markedForDelete) {
+                RemoveComponent<Phys_Dynamic>(iEnt);
             }
         }
     }
@@ -861,6 +823,39 @@ public:
             }
             cur = cur->GetNext();
         }
+    }
+
+    template<typename T>
+    void Initialize(Entity_ID id, T& phys, b2BodyType type, float fixedRotation) {
+        b2BodyDef bodyDef = {};
+        b2FixtureDef fixtureDef = {};
+        b2PolygonShape shape = {};
+
+        auto& ent = m_pCommon->aGameData.entities[id];
+
+        bodyDef.type = type;
+        bodyDef.position.Set(ent.position[0], ent.position[1]);
+        bodyDef.fixedRotation = fixedRotation;
+
+        shape.SetAsBox(ent.size[0] / 2, ent.size[1] / 2);
+
+        phys.body = m_physWorld.CreateBody(&bodyDef);
+        phys.body->SetUserData((void*)id);
+
+        fixtureDef.shape = &shape;
+        fixtureDef.density = 1.0f;
+        fixtureDef.friction = phys.friction;
+        phys.fixture = phys.body->CreateFixture(&fixtureDef);
+
+        phys.world = &m_physWorld;
+    }
+
+    void Initialize(Entity_ID id, Phys_Static& phys) {
+        Initialize(id, phys, b2_staticBody, false);
+    }
+
+    void Initialize(Entity_ID id, Phys_Dynamic& phys) {
+        Initialize(id, phys, b2_dynamicBody, phys.inhibitRotation);
     }
 
 private:

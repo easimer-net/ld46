@@ -2,6 +2,7 @@ include 'box2d/box2d.h'
 
 alias b2Fixture;
 alias b2Body;
+alias b2World;
 
 interface Collision_Handler {
     member_function 'virtual void BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) = 0';
@@ -23,6 +24,11 @@ table Entity {
 }
 
 table Phys_Static {
+    markedForDelete : bool;
+    friction : float;
+
+#not_owning
+    world: *b2World;
 #not_owning
     body: *b2Body;
 #not_owning
@@ -30,10 +36,13 @@ table Phys_Static {
 }
 
 table Phys_Dynamic {
+    markedForDelete : bool;
     density : float;
     friction : float;
     inhibitRotation : bool;
 
+#not_owning
+    world: *b2World;
 #not_owning
     body: *b2Body;
 #not_owning

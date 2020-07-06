@@ -55,7 +55,7 @@ static String GetTypeInitializer(Field_Type const& type) {
                 auto const val_s = val.value();
                 repeat(type.count - 1, [&]() {
                     ret += val_s + ", ";
-                });
+                    });
 
                 ret += val_s + " }";
 
@@ -86,9 +86,9 @@ static String FieldToCField(Table_Definition const& table, Field_Definition cons
         alias %s_Ptr = *%s;\n\
     Then define the field in the table:\n\
         %s : %s_Ptr[%u];\n",
-            table.name.c_str(), field.name.c_str(),
-            field.type.base.c_str(), field.type.base.c_str(),
-            field.name.c_str(), field.type.base.c_str(), field.type.count);
+                table.name.c_str(), field.name.c_str(),
+                field.type.base.c_str(), field.type.base.c_str(),
+                field.name.c_str(), field.type.base.c_str(), field.type.count);
         }
     }
 
@@ -182,7 +182,9 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     }
     out->Printf("\n");
 
-    out->Printf("struct Game_Data;\n");
+    C("struct Game_Data;\n");
+
+    C("template<typename T> using E_Map = std::unordered_map<Entity_ID, T>;\n");
 
     // Emit typedefs
     for (auto& alias : top.type_aliases) {
@@ -260,11 +262,19 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     }
     out->Printf(TAB "}\n\n");
 
+    C(TAB "struct Dummy_Deleter { void operator()(...) {} };\n");
+    C(TAB "template<typename Deleter = Dummy_Deleter>\n");
     out->Printf(TAB "void DeleteEntity(Entity_ID i) {\n");
     out->Printf(TAB2 "assert(i < entities.size());\n");
+    C(TAB2 "Deleter d;\n");
     for (auto& table : tables) {
+        auto var_name = table.var_name.c_str();
+        auto name = table.name.c_str();
         if (table.name != "Entity" && (table.flags & k_unTableFlags_Interface) == 0) {
-            out->Printf(TAB2 "%s.erase(i);\n", table.var_name.c_str());
+            C(TAB2 "if(%s.count(i)) {\n", var_name);
+            C(TAB3 "d(this, i, &%s[i]);\n", var_name);
+            C(TAB3 "%s.erase(i);\n", var_name);
+            C(TAB2 "}\n");
         }
     }
     out->Printf(TAB2 "entities[i].bUsed = false;\n");
@@ -292,6 +302,7 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
     }
     C(TAB2 "return id;\n");
     C(TAB  "}\n");
+    C(TAB "template<typename T> E_Map<T>& GetComponents();\n\n");
 
     out->Printf(TAB "template<typename T> std::vector<T*> GetInterfaceImplementations(Entity_ID id);\n\n");
 
@@ -361,6 +372,16 @@ void GenerateHeaderFile(IOutput* out, Top const& top) {
             out->Printf("}\n");
         }
     }
+
+    for (auto& table : tables) {
+        if ((table.flags & k_unTableFlags_Interface) == 0) {
+            if (table.name != "Entity") {
+                auto name = table.name.c_str();
+                auto var_name = table.var_name.c_str();
+                C("template<> inline E_Map<%s>& Game_Data::GetComponents<%s>() { return %s; }\n", name, name, var_name);
+            }
+        }
+   }
 }
 
 static char const* gpszSaveLevelHeader = "\n\
