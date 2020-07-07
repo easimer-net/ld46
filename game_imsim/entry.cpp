@@ -309,12 +309,8 @@ int main(int argc, char** argv) {
 
         Projectiles_Init();
 
-        gpApp = StartApplication(k_nApplication_Kind_Game);
-
         // Init game
-        // res = OnLoad();
-        res = gpApp->OnLoad();
-        CHECK_RESULT();
+        gpApp = StartApplication(k_nApplication_Kind_Game);
 
         while (!bExit) {
             rq.Clear();

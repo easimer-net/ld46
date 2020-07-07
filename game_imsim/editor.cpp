@@ -50,10 +50,6 @@ public:
         return k_nApplication_Result_OK;
     }
 
-    virtual Application_Result OnLoad() override {
-        return k_nApplication_Result_OK;
-    }
-
     virtual Application_Result OnPreFrame(float flDelta) override {
         auto& dq = m_dq;
         auto& gameData = m_pCommon->aInitialGameData;

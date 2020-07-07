@@ -198,10 +198,6 @@ public:
         return k_nApplication_Result_OK;
     }
 
-    virtual Application_Result OnLoad() override {
-        return k_nApplication_Result_OK;
-    }
-
     virtual Application_Result OnPreFrame(float flDelta) override {
         m_physWorld.Step(flDelta, 6, 2);
         m_path_finding->PreFrame(flDelta);
@@ -877,11 +873,6 @@ private:
     Animation_Collection m_hAnimPlayer;
     dq::Draw_Queue m_dq;
     char m_pszConBuf[CONSOLE_BUFFER_SIZ];
-
-    /*
-    unsigned m_ai_nodes_age = 0xFFFFFFFF;
-    Vector<PF_Node> m_ai_nodes;
-    */
 
     unsigned m_unPlayerMoveDir;
     bool m_bPlayerUse;
