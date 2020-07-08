@@ -36,6 +36,11 @@ struct Level_Geometry_Creation_State {
     }
 };
 
+struct Texture_Picker_Window {
+    bool is_open;
+    Texture_Picker_State state;
+};
+
 class Level_Editor : public IApplication {
 public:
     Level_Editor(Common_Data* pCommon)
@@ -138,7 +143,7 @@ public:
         }
 
         for (auto const& ent : gameData.entities) {
-            if (ent.hSprite != NULL) {
+            if (ent.bUsed && ent.hSprite != NULL) {
                 dq::Draw_World_Thing_Params dc;
                 dc.x = ent.position[0];
                 dc.y = ent.position[1];
@@ -237,6 +242,7 @@ public:
                 EditSelectedEntity();
 
                 if (bDelete) {
+                    CloseTexturePicker();
                     m_iSelectedEntity.reset();
                     DeleteEntity(iEnt);
                 }
@@ -244,15 +250,18 @@ public:
         }
         ImGui::End();
 
-        PickTexture(&m_texpick);
 
         return k_nApplication_Result_OK;
     }
 
-#define BEGIN_COMPONENT_EDITOR() struct {
+    void CloseTexturePicker() {
+        m_texpick.is_open = false;
+    }
+
+#define BEGIN_COMPONENT_EDITOR() struct C_Edit {
 #define EDIT_COMPONENT(T) bool operator()(Entity_ID iEnt, Entity* ent, T* data)
 #define CATCH_ALL() bool operator()(...) { return false; }
-#define END_COMPONENT_EDITOR() } c;
+#define END_COMPONENT_EDITOR(ctor_param) } c(ctor_param);
 
     void EditSelectedEntity() {
         BEGIN_COMPONENT_EDITOR()
@@ -272,9 +281,16 @@ public:
                 if (data != NULL) {
                     ImGui::Separator();
                     ImGui::Text("Static prop");
-                    ImGui::InputText("Sprite path", data->pszSpritePath, STATIC_PROP_PSZSPRITEPATH_SIZ);
-                    if (ImGui::Button("Reload sprite")) {
-                        ent->hSprite = Shared_Sprite(data->pszSpritePath);
+                    ImGui::InputText("Sprite path", data->pszSpritePath, STATIC_PROP_PSZSPRITEPATH_SIZ, ImGuiInputTextFlags_ReadOnly);
+                    if (ImGui::Button("Browse...")) {
+                        m_texpick.is_open = true;
+                    }
+                    if (m_texpick.is_open) {
+                        if (PickTexture(&m_texpick.state)) {
+                            snprintf(data->pszSpritePath, STATIC_PROP_PSZSPRITEPATH_SIZ, m_texpick.state.filename);
+                            ent->hSprite = Shared_Sprite(data->pszSpritePath);
+                            m_texpick.is_open = false;
+                        }
                     }
                     ImGui::RadioButton("Sprite OK", ent->hSprite != NULL);
                     ImGui::Separator();
@@ -378,7 +394,11 @@ public:
                 }
             }
             CATCH_ALL()
-        END_COMPONENT_EDITOR()
+
+            C_Edit(Texture_Picker_Window& texpick) : m_texpick(texpick) {}
+            private:
+            Texture_Picker_Window& m_texpick;
+        END_COMPONENT_EDITOR(m_texpick)
 
         m_pCommon->aInitialGameData.ForEachComponent(m_iSelectedEntity.value(), c);
     }
@@ -554,17 +574,7 @@ public:
     // Delete an entity from aInitialGameData
     void DeleteEntity(Entity_ID id) {
         auto& game_data = m_pCommon->aInitialGameData;
-        if (id < game_data.entities.size()) {
-            auto& ent = game_data.entities[id];
-            if (ent.hSprite) {
-                ent.hSprite.Reset();
-            }
-            ent.bUsed = false;
-
-            game_data.living.erase(id);
-            game_data.expiring.erase(id);
-            game_data.players.erase(id);
-        }
+        game_data.DeleteEntity(id);
     }
 
     // Used when calculating the bounding boxes for entity
@@ -614,6 +624,7 @@ public:
             } else {
                 m_iSelectedEntity = res[0];
             }
+            CloseTexturePicker();
         } else {
             m_iSelectedEntity.reset();
         }
@@ -673,7 +684,7 @@ private:
     bool m_bShowGeoLayer, m_bShowBoundingBoxes;
     Optional<Entity_ID> m_iSelectedEntity;
 
-    Texture_Picker_State m_texpick;
+    Texture_Picker_Window m_texpick;
 };
 
 IApplication* OpenEditor(Common_Data* pCommon) {
