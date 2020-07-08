@@ -37,6 +37,7 @@ void Sprite2_Shutdown();
 Sprite2 CreateSprite(char const* pszPath);
 void AddRef(Sprite2);
 void Release(Sprite2);
+void* NativeHandle(Sprite2);
 
 void Sprite2_Debug(bool(*fun)(void*, char const*, GLuint, unsigned), void* pUser);
 

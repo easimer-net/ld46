@@ -21,6 +21,8 @@ set(SRC
 	collision_handling.cpp
 	path_finding.cpp
 	path_finding.h
+	texture_picker.cpp
+	texture_picker.h
 )
 
 if(MSVC)

@@ -209,3 +209,8 @@ void Sprite2_Debug(bool(*fun)(void*, char const*, GLuint, unsigned), void* pUser
         }
     }
 }
+
+void* NativeHandle(Sprite2 hSprite) {
+    assert(hSprite != NULL);
+    return (void*)(GLuint)hSprite->hTexture;
+}

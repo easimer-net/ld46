@@ -9,6 +9,7 @@
 #include "draw_queue.h"
 #include "serialization.h"
 #include "geometry.h"
+#include "texture_picker.h"
 
 #define CAMERA_MOVEDIR_RIGHT    (0x1)
 #define CAMERA_MOVEDIR_UP       (0x2)
@@ -242,6 +243,8 @@ public:
             }
         }
         ImGui::End();
+
+        PickTexture(&m_texpick);
 
         return k_nApplication_Result_OK;
     }
@@ -669,6 +672,8 @@ private:
 
     bool m_bShowGeoLayer, m_bShowBoundingBoxes;
     Optional<Entity_ID> m_iSelectedEntity;
+
+    Texture_Picker_State m_texpick;
 };
 
 IApplication* OpenEditor(Common_Data* pCommon) {
