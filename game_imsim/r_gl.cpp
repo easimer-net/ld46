@@ -48,9 +48,17 @@ struct Quad {
     gl::VBO buf;
 };
 
+/**
+ * VAO and VBO recycler for stream drawing.
+ */
 template<typename Tuple>
 struct Array_Recycler {
 public:
+    /**
+     * Get an unused instance of `Tuple`.
+     * @param out Where the pointer to the tuple will be placed.
+     * @return Handle to the instance.
+     */
     size_t get(Tuple** out) {
         *out = NULL;
         if (ready_queue.empty()) {
@@ -63,11 +71,18 @@ public:
         }
     }
 
+    /**
+     * Mark a tuple instance as used and retire it.
+     * @param handle An instance handle returned from get(Tuple**).
+     */
     void put_back(size_t handle) {
         assert(handle < arrays.size());
         retired_queue.push(handle);
     }
 
+    /**
+     * Called after a frame ends.
+     */
     void flip() {
         while (!retired_queue.empty()) {
             auto h = retired_queue.front();

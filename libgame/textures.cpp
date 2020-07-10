@@ -148,7 +148,7 @@ Sprite2 CreateSprite(char const* pszPath) {
             ret = new Sprite2_;
             ret->unRefCount = 1;
 
-            printf("Sprite2 loaded '%s' %dx%dx%d\n", pszPath, nWidth, nHeight, nChannels);
+            //printf("Sprite2 loaded '%s' %dx%dx%d\n", pszPath, nWidth, nHeight, nChannels);
 
             if (nChannels == 3) {
                 kFmt = gl::Format::RGB;
