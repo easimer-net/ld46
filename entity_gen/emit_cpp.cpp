@@ -163,7 +163,7 @@ static bool DoesTableImplementInterface(Top const& top, Table_Definition const& 
     return false;
 }
 
-#define C(f, ...) out->Printf(f, __VA_ARGS__)
+#define C(...) out->Printf(__VA_ARGS__)
 
 void GenerateHeaderFile(IOutput* out, Top const& top) {
     auto& tables = top.table_defs;
