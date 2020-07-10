@@ -7,6 +7,7 @@
 
 #include "textures.h"
 #include <utils/linear_math.h>
+#include <vector>
 #include <variant>
 
 #ifdef _DEBUG
@@ -44,6 +45,7 @@ namespace dq {
     struct Draw_Line_Params {
         float x0, y0;
         float x1, y1;
+        float r, g, b;
 
         DQ_DEBUG_NOTE;
     };
@@ -85,11 +87,3 @@ namespace dq {
     };
 
 }
-
-/////////////////////////////////////////
-
-#include "render_queue.h"
-#include "tools.h"
-
-// Converts a draw queue to a low-level render queue
-rq::Render_Queue Translate(dq::Draw_Queue const& dq, Common_Data* pCommon);

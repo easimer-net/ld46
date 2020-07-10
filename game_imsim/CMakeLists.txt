@@ -2,7 +2,6 @@ set(SRC
 	stdafx.h
 	common.h
 	tools.h
-	render_queue.h
 	draw_queue.h
 	serialization.cpp
 	serialization.h
@@ -13,16 +12,17 @@ set(SRC
 	an.h
 
 	entry.cpp
-	# game_core.cpp
 	game.cpp
 	game.h
 	editor.cpp
-	draw_queue.cpp
 	collision_handling.cpp
 	path_finding.cpp
 	path_finding.h
 	texture_picker.cpp
 	texture_picker.h
+
+	irenderer.h
+	r_gl.cpp
 )
 
 if(MSVC)

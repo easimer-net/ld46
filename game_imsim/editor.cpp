@@ -489,8 +489,8 @@ public:
         return ret;
     }
 
-    virtual Application_Result OnDraw(rq::Render_Queue* pQueue) override {
-        *pQueue = std::move(Translate(m_dq, m_pCommon));
+    virtual Application_Result OnDraw() override {
+        m_pCommon->pRenderer->Submit(m_dq);
         m_dq.Clear();
         return k_nApplication_Result_OK;
     }

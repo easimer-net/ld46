@@ -6,7 +6,6 @@
 #include "stdafx.h"
 #include "common.h"
 #include <ctime>
-#include "render_queue.h"
 #include <utils/glres.h>
 #include <utils/gl.h>
 #include "draw_queue.h"
@@ -194,6 +193,9 @@ public:
 
     virtual Application_Result Release() override {
         m_path_finding->Release();
+        for (auto i = 0ull; i < m_pCommon->aGameData.entities.size(); i++) {
+            m_pCommon->aGameData.DeleteEntity<Component_Deleter>(i);
+        }
         delete this;
         return k_nApplication_Result_OK;
     }
@@ -273,8 +275,8 @@ public:
         return ret;
     }
 
-    virtual Application_Result OnDraw(rq::Render_Queue* pQueue) override {
-        *pQueue = std::move(Translate(m_dq, m_pCommon));
+    virtual Application_Result OnDraw() override {
+        m_pCommon->pRenderer->Submit(m_dq);
         m_dq.Clear();
         return k_nApplication_Result_OK;
     }
@@ -444,6 +446,9 @@ public:
         dct.y0 = y0;
         dct.x1 = x1;
         dct.y1 = y1;
+        dct.r = 1;
+        dct.g = 0;
+        dct.b = 0;
         DQ_ANNOTATE(dct);
         m_dq.Add(dct);
     }

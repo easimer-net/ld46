@@ -5,7 +5,6 @@
 
 #pragma once
 #include <utils/sdl_helper.h>
-#include "render_queue.h"
 
 enum Application_Kind {
     k_nApplication_Kind_Null = 0,
@@ -50,7 +49,7 @@ public:
      * application.
      * @param pQueue Command queue in which the commands should be placed.
      */
-    virtual Application_Result OnDraw(rq::Render_Queue* pQueue) = 0;
+    virtual Application_Result OnDraw() = 0;
 
     /**
      * Called after the render commands have been executed, but before vertical

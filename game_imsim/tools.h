@@ -5,16 +5,17 @@
 
 #pragma once
 
+class IRenderer;
+
 #include "common.h"
 #include <an.h>
 #include "collision.h"
+#include "irenderer.h"
 
 #define LEVEL_FILENAME_MAX_SIZ (64)
 
 struct Common_Data {
-    Shader_Program hShaderGeneric, hShaderDebugRed, hShaderRect;
-    gl::VAO hVAO;
-    gl::VBO hVBO;
+    IRenderer* pRenderer;
 
     lm::Vector4 vCameraPosition;
     float flCameraZoom = 1.0f;
