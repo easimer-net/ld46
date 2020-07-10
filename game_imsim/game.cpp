@@ -6,8 +6,6 @@
 #include "stdafx.h"
 #include "common.h"
 #include <ctime>
-#include <utils/glres.h>
-#include <utils/gl.h>
 #include "draw_queue.h"
 #include "shaders.h"
 #include "game.h"
@@ -189,6 +187,8 @@ public:
             kvPhys.second.markedForDelete = false;
             Initialize(kvPhys.first, kvPhys.second);
         }
+
+        m_pCommon->flCameraZoom = 2.0f;
     }
 
     virtual Application_Result Release() override {
@@ -235,6 +235,9 @@ public:
                 break;
             case SDLK_F10:
                 ret = k_nApplication_Result_SwitchEngineMode;
+                break;
+            case SDLK_ESCAPE:
+                ret = k_nApplication_Result_OpenMenu;
                 break;
             }
         } else if (ev.type == SDL_MOUSEWHEEL) {

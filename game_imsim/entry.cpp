@@ -16,9 +16,25 @@
 #include <imgui_impl_sdl.h>
 #include "tools.h"
 #include <ctime>
+#include <unordered_set>
 #include <utils/gl.h>
 
 #define LEAK_CHECK 0
+
+#if STEAM
+#include <steam/steam_api.h>
+
+void InitSteam() {
+    SteamAPI_Init();
+}
+
+void FiniSteam() {
+    SteamAPI_Shutdown();
+}
+#else
+void InitSteam() {}
+void FiniSteam() {}
+#endif
 
 static void GLMessageCallback
 (GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* lparam) {
@@ -42,6 +58,8 @@ static void GLMessageCallback
 extern IApplication* OpenEditor(Common_Data* pCommon);
 // game_core.cpp
 extern IApplication* StartGame(Common_Data* pCommon);
+// main_menu.cpp
+extern IApplication* OpenMainMenu(Common_Data* pCommon);
 
 static Common_Data* gpCommonData = NULL;
 static IApplication* gpApp = NULL;
@@ -55,6 +73,9 @@ static IApplication* StartApplication(Application_Kind kKind) {
         break;
     case k_nApplication_Kind_Editor:
         ret = OpenEditor(gpCommonData);
+        break;
+    case k_nApplication_Kind_MainMenu:
+        ret = OpenMainMenu(gpCommonData);
         break;
     }
 
@@ -107,6 +128,7 @@ static void MakeViewMatrices(lm::Matrix4& forward, lm::Matrix4& inverse) {
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <Psapi.h>
+#include <unordered_set>
 static PROCESS_MEMORY_COUNTERS gMem;
 static void BeginLeakCheck() {
     GetProcessMemoryInfo(GetCurrentProcess(), &gMem, sizeof(gMem));
@@ -125,9 +147,33 @@ static void EndLeakCheck() {}
 #endif
 
 
-#define CHECK_QUIT() if(res != k_nApplication_Result_OK && res != k_nApplication_Result_SwitchEngineMode) bExit = true
+#define CHECK_QUIT() if(res == k_nApplication_Result_Quit) bExit = true
 #define CHECK_TOOLSWITCH() if(res == k_nApplication_Result_SwitchEngineMode) bSwitchEngineMode = true
-#define CHECK_RESULT() CHECK_TOOLSWITCH(); CHECK_QUIT();
+#define CHECK_OPEN_MENU() if(res == k_nApplication_Result_OpenMenu) bOpenMenu = true
+#define CHECK_NEWGAME() if(res == k_nApplication_Result_NewGame) bStartGame = true
+#define CHECK_RESULT() CHECK_TOOLSWITCH(); CHECK_QUIT(); CHECK_OPEN_MENU(); CHECK_NEWGAME();
+
+static bool IsInputEvent(SDL_Event const& ev) {
+    return ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP ||
+        ev.type == SDL_MOUSEMOTION || ev.type == SDL_MOUSEBUTTONDOWN ||
+        ev.type == SDL_MOUSEBUTTONUP ||
+        (ev.type >= SDL_CONTROLLERAXISMOTION && ev.type <= SDL_CONTROLLERDEVICEREMAPPED);
+}
+
+static bool RedirectToImGui(SDL_Event const& ev, ImGuiIO& io) {
+    bool const bImGuiInterceptKbd = io.WantCaptureKeyboard;
+    bool const bImGuiInterceptMouse = io.WantCaptureMouse;
+
+    if (SDL_KEYDOWN <= ev.type && ev.type <= SDL_KEYMAPCHANGED && bImGuiInterceptKbd) {
+        return true;
+    }
+
+    if (SDL_MOUSEMOTION <= ev.type && ev.type <= SDL_MOUSEWHEEL && bImGuiInterceptMouse) {
+        return true;
+    }
+
+    return false;
+}
 
 int main(int argc, char** argv) {
     bool bExit = false;
@@ -139,14 +185,25 @@ int main(int argc, char** argv) {
     bool bEngineModeGame = true;
     bool bLeakCheckDone = false;
     unsigned nLeakCheck = 0;
+    IApplication* pMainMenu = NULL;
+    IApplication* pRunning = NULL;
+    bool bOpenMenu = false;
+    bool bStartGame = false;
+    bool bInMenu = true;
+#define IS_IN_MENU() (gpApp == pMainMenu)
+#define IS_IN_GAME() (gpApp == pRunning)
+#define IS_GAME_RUNNING() (pRunning != pMainMenu)
 
     printf("game\n");
+
+    InitSteam();
 
     printf("Initializing SDL2\n");
     SDL_Init(SDL_INIT_EVERYTHING);
 
     printf("Initializing the renderer\n");
     gpCommonData = new Common_Data;
+    gpCommonData->pInput = MakeInputManager();
     auto pRenderer = gpCommonData->pRenderer = MakeRenderer();
 
     if (gpCommonData->pRenderer != NULL) {
@@ -154,55 +211,38 @@ int main(int argc, char** argv) {
         Sprite2_Init();
         LoadEngineData();
 
-        gpApp = StartApplication(k_nApplication_Kind_Game);
+        pMainMenu = StartApplication(k_nApplication_Kind_MainMenu);
+
+        // gpApp = StartApplication(k_nApplication_Kind_Game);
+        gpApp = pRunning = pMainMenu;
 
         auto& io = ImGui::GetIO();
 
         BeginLeakCheck();
 
         while (!bExit) {
-            bool const bImGuiInterceptKbd = io.WantCaptureKeyboard;
-            bool const bImGuiInterceptMouse = io.WantCaptureMouse;
-
             while (SDL_PollEvent(&ev)) {
-                bool bPassEventToImGui = true;
+                if (RedirectToImGui(ev, io)) {
+                    ImGui_ImplSDL2_ProcessEvent(&ev);
+                    continue;
+                }
+                if (IsInputEvent(ev)) {
+                    if (ev.type == SDL_KEYUP && ev.key.keysym.sym == SDLK_F10) {
+                        bSwitchEngineMode = true;
+                    } else {
+                        gpCommonData->pInput->OnInputEvent(ev);
+
+                        // TEMP: eventually remove
+                        gpApp->OnInput(ev);
+                    }
+
+                }
                 switch (ev.type) {
                 case SDL_QUIT:
                 {
                     bExit = true;
                     break;
                 }
-                case SDL_KEYDOWN:
-                {
-                    if (!bImGuiInterceptKbd) {
-                        res = gpApp->OnInput(ev);
-                        CHECK_RESULT();
-                    }
-                    break;
-                }
-                case SDL_KEYUP:
-                {
-                    if (!bImGuiInterceptKbd) {
-                        res = gpApp->OnInput(ev);
-                        CHECK_RESULT();
-                    }
-                    break;
-                }
-                case SDL_MOUSEBUTTONDOWN:
-                case SDL_MOUSEBUTTONUP:
-                case SDL_MOUSEMOTION:
-                case SDL_MOUSEWHEEL:
-                {
-                    if (!bImGuiInterceptMouse) {
-                        res = gpApp->OnInput(ev);
-                        CHECK_RESULT();
-                    }
-                    break;
-                }
-                }
-
-                if (bPassEventToImGui) {
-                    ImGui_ImplSDL2_ProcessEvent(&ev);
                 }
             }
 
@@ -235,12 +275,31 @@ int main(int argc, char** argv) {
             }
 #endif /* LEAK_CHECK */
 
-            if (bSwitchEngineMode) {
-                gpApp->Release();
-                if (bEngineModeGame) {
-                    gpApp = StartApplication(k_nApplication_Kind_Editor);
+            if (IS_IN_GAME() && bOpenMenu) {
+                gpApp = pMainMenu;
+                bOpenMenu = false;
+            } else if (IS_IN_MENU() && bStartGame) {
+                // User choose the 'Start Game' option in the menu
+                if (IS_GAME_RUNNING()) {
+                    // We are in the pause menu
+                    gpApp = pRunning;
                 } else {
-                    gpApp = StartApplication(k_nApplication_Kind_Game);
+                    // We are in the main menu
+                    gpApp = pRunning = StartApplication(k_nApplication_Kind_Game);
+                }
+                bStartGame = false;
+            } else if (IS_IN_MENU() && !IS_GAME_RUNNING() && bSwitchEngineMode) {
+                // User choose the 'Editor' option in the menu
+                gpApp = pRunning = StartApplication(k_nApplication_Kind_Editor);
+                bSwitchEngineMode = false;
+            }
+
+            if (IS_GAME_RUNNING() && bSwitchEngineMode) {
+                pRunning->Release();
+                if (bEngineModeGame) {
+                    gpApp = pRunning = StartApplication(k_nApplication_Kind_Editor);
+                } else {
+                    gpApp = pRunning = StartApplication(k_nApplication_Kind_Game);
                 }
 
                 bEngineModeGame = !bEngineModeGame;
@@ -249,6 +308,7 @@ int main(int argc, char** argv) {
         }
 
         gpApp->Release();
+        pMainMenu->Release();
 
         gpCommonData->aGameData.Clear();
         gpCommonData->aInitialGameData.Clear();
@@ -257,11 +317,14 @@ int main(int argc, char** argv) {
         Sprite2_Shutdown();
         Convar_Shutdown();
 
+        gpCommonData->pInput->Release();
+        gpCommonData->pInput = NULL;
         gpCommonData->pRenderer = NULL;
         pRenderer->Release();
     }
 
     SDL_Quit();
+    FiniSteam();
 
     return 0;
 }

@@ -11,11 +11,13 @@ class IRenderer;
 #include <an.h>
 #include "collision.h"
 #include "irenderer.h"
+#include "input_manager.h"
 
 #define LEVEL_FILENAME_MAX_SIZ (64)
 
 struct Common_Data {
     IRenderer* pRenderer;
+    IInput_Manager* pInput;
 
     lm::Vector4 vCameraPosition;
     float flCameraZoom = 1.0f;

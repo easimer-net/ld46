@@ -57,6 +57,7 @@ public:
     }
 
     virtual Application_Result OnPreFrame(float flDelta) override {
+        Application_Result ret = k_nApplication_Result_OK;
         auto& dq = m_dq;
         auto& gameData = m_pCommon->aInitialGameData;
 
@@ -89,6 +90,12 @@ public:
                         UI_SaveLevel();
                     }
                     ImGui::EndMenu();
+                }
+                if (ImGui::MenuItem("Back to the main menu")) {
+                    ret = k_nApplication_Result_OpenMenu;
+                }
+                if (ImGui::MenuItem("Quit")) {
+                    ret = k_nApplication_Result_Quit;
                 }
                 ImGui::EndMenu();
             }
@@ -251,7 +258,7 @@ public:
         ImGui::End();
 
 
-        return k_nApplication_Result_OK;
+        return ret;
     }
 
     void CloseTexturePicker() {
