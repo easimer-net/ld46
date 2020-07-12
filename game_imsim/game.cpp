@@ -200,6 +200,10 @@ public:
         return k_nApplication_Result_OK;
     }
 
+    Application_Kind GetAppKind() const noexcept override {
+        return k_nApplication_Kind_Game;
+    }
+
     virtual Application_Result OnPreFrame(float flDelta) override {
         m_physWorld.Step(flDelta, 6, 2);
         m_path_finding->PreFrame(flDelta);
@@ -234,10 +238,14 @@ public:
                 m_bPlayerJump = bDown;
                 break;
             case SDLK_F10:
-                ret = k_nApplication_Result_SwitchEngineMode;
+                if (!bDown) {
+                    ret = k_nApplication_Result_SwitchTo_Editor;
+                }
                 break;
             case SDLK_ESCAPE:
-                ret = k_nApplication_Result_OpenMenu;
+                if (!bDown) {
+                    ret = k_nApplication_Result_SwitchTo_Menu;
+                }
                 break;
             }
         } else if (ev.type == SDL_MOUSEWHEEL) {

@@ -56,6 +56,10 @@ public:
         return k_nApplication_Result_OK;
     }
 
+    Application_Kind GetAppKind() const noexcept override {
+        return k_nApplication_Kind_Editor;
+    }
+
     virtual Application_Result OnPreFrame(float flDelta) override {
         Application_Result ret = k_nApplication_Result_OK;
         auto& dq = m_dq;
@@ -92,7 +96,7 @@ public:
                     ImGui::EndMenu();
                 }
                 if (ImGui::MenuItem("Back to the main menu")) {
-                    ret = k_nApplication_Result_OpenMenu;
+                    ret = k_nApplication_Result_SwitchTo_Menu;
                 }
                 if (ImGui::MenuItem("Quit")) {
                     ret = k_nApplication_Result_Quit;
@@ -439,8 +443,10 @@ public:
             case SDLK_d:
                 CAMERA_MOVEDIR_SET(CAMERA_MOVEDIR_RIGHT, bDown);
                 break;
-            case SDLK_F11:
-                ret = k_nApplication_Result_SwitchEngineMode;
+            case SDLK_F10:
+                if (!bDown) {
+                    ret = k_nApplication_Result_SwitchTo_Game;
+                }
                 break;
             case SDLK_ESCAPE:
                 break;

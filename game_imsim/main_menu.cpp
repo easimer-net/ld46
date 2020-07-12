@@ -15,6 +15,10 @@ private:
         return k_nApplication_Result_OK;
     }
 
+    Application_Kind GetAppKind() const noexcept override {
+        return k_nApplication_Kind_MainMenu;
+    }
+
     virtual Application_Result OnPreFrame(float flDelta) override {
         auto ret = k_nApplication_Result_OK;
         auto flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDecoration;
@@ -23,10 +27,10 @@ private:
         ImGui::SetNextWindowPos(ImVec2(400, 150));
         ImGui::Begin("PATH OF ANUBIS: NEW KINGDOM 2", 0, flags);
         if (ImGui::Button("START GAME")) {
-            ret = k_nApplication_Result_NewGame;
+            ret = k_nApplication_Result_SwitchTo_Game;
         }
         if (ImGui::Button("EDITOR")) {
-            ret = k_nApplication_Result_SwitchEngineMode;
+            ret = k_nApplication_Result_SwitchTo_Editor;
         }
         if (ImGui::Button("QUIT GAME")) {
             ret = k_nApplication_Result_Quit;

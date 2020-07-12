@@ -62,7 +62,6 @@ extern IApplication* StartGame(Common_Data* pCommon);
 extern IApplication* OpenMainMenu(Common_Data* pCommon);
 
 static Common_Data* gpCommonData = NULL;
-static IApplication* gpApp = NULL;
 
 static IApplication* StartApplication(Application_Kind kKind) {
     IApplication* ret = NULL;
@@ -81,6 +80,93 @@ static IApplication* StartApplication(Application_Kind kKind) {
 
     return ret;
 }
+
+struct Application_Manager {
+    Application_Manager(Application_Kind startup_kind) :
+        menu(::StartApplication(k_nApplication_Kind_MainMenu)), app(NULL) {
+        if (startup_kind != k_nApplication_Kind_MainMenu) {
+            StartApplication(startup_kind);
+        } else {
+            fg = menu;
+        }
+
+        assert(menu != NULL);
+        assert(fg != NULL);
+    }
+
+    ~Application_Manager() {
+        if (menu != NULL) menu->Release();
+        if (app != NULL) app->Release();
+    }
+
+    void HandleResultCode(Application_Result res) {
+        assert(menu != NULL);
+        assert(fg != NULL);
+        switch (res) {
+        case k_nApplication_Result_SwitchTo_Editor:
+            TryStartApplication(k_nApplication_Kind_Editor);
+            break;
+        case k_nApplication_Result_SwitchTo_Game:
+            TryStartApplication(k_nApplication_Kind_Game);
+            break;
+        case k_nApplication_Result_SwitchTo_Menu:
+            fg = menu;
+            break;
+        }
+
+        assert(menu != NULL);
+        assert(fg != NULL);
+#define IMPLIES(x, y) (!(x) || y)
+        assert(IMPLIES(app != NULL, fg == menu || fg == app));
+        assert(IMPLIES(app == NULL, fg == menu));
+    }
+
+    IApplication* operator->() {
+        assert(fg != NULL);
+        return fg;
+    }
+
+private:
+    bool IsAppRunning() const {
+        return app != NULL;
+    }
+
+    bool IsAppInForeground() const {
+        return app == fg;
+    }
+
+    bool IsAppOfKind(Application_Kind kind) const {
+        return app->GetAppKind() == kind;
+    }
+
+    void StartApplication(Application_Kind kind) {
+        app = fg = ::StartApplication(kind);
+    }
+
+    void TryStartApplication(Application_Kind kind) {
+        if (IsAppRunning()) {
+            if (IsAppOfKind(kind)) {
+                fg = app;
+            } else {
+                ShutdownApp();
+                StartApplication(kind);
+            }
+        } else {
+            StartApplication(kind);
+        }
+    }
+
+    void ShutdownApp() {
+        assert(app != NULL);
+        app->Release();
+        app = NULL;
+    }
+
+private:
+    IApplication* const menu;
+    IApplication* app;
+    IApplication *fg;
+};
 
 /**
  * Called when the renderer is running and gpCommonData is not NULL,
@@ -181,18 +267,11 @@ int main(int argc, char** argv) {
     Application_Result res;
     SDL_Event ev;
     Uint64 uiTimeAfterPreFrame = SDL_GetPerformanceCounter();
-    bool bSwitchEngineMode = false;
-    bool bEngineModeGame = true;
     bool bLeakCheckDone = false;
     unsigned nLeakCheck = 0;
-    IApplication* pMainMenu = NULL;
-    IApplication* pRunning = NULL;
     bool bOpenMenu = false;
     bool bStartGame = false;
     bool bInMenu = true;
-#define IS_IN_MENU() (gpApp == pMainMenu)
-#define IS_IN_GAME() (gpApp == pRunning)
-#define IS_GAME_RUNNING() (pRunning != pMainMenu)
 
     printf("game\n");
 
@@ -211,10 +290,11 @@ int main(int argc, char** argv) {
         Sprite2_Init();
         LoadEngineData();
 
-        pMainMenu = StartApplication(k_nApplication_Kind_MainMenu);
-
-        // gpApp = StartApplication(k_nApplication_Kind_Game);
-        gpApp = pRunning = pMainMenu;
+#ifdef NDEBUG
+        Application_Manager app(k_nApplication_Kind_MainMenu);
+#else
+        Application_Manager app(k_nApplication_Kind_Game);
+#endif
 
         auto& io = ImGui::GetIO();
 
@@ -227,15 +307,11 @@ int main(int argc, char** argv) {
                     continue;
                 }
                 if (IsInputEvent(ev)) {
-                    if (ev.type == SDL_KEYUP && ev.key.keysym.sym == SDLK_F10) {
-                        bSwitchEngineMode = true;
-                    } else {
-                        gpCommonData->pInput->OnInputEvent(ev);
+                    gpCommonData->pInput->OnInputEvent(ev);
 
-                        // TEMP: eventually remove
-                        gpApp->OnInput(ev);
-                    }
-
+                    // TEMP: eventually remove
+                    res = app->OnInput(ev);
+                    app.HandleResultCode(res);
                 }
                 switch (ev.type) {
                 case SDL_QUIT:
@@ -249,9 +325,9 @@ int main(int argc, char** argv) {
             auto uiTimeBeforePreFrame = SDL_GetPerformanceCounter();
             flDelta = (uiTimeBeforePreFrame - uiTimeAfterPreFrame) / (double)SDL_GetPerformanceFrequency();
             pRenderer->NewFrame();
-            res = gpApp->OnPreFrame(flDelta);
+            res = app->OnPreFrame(flDelta);
+            app.HandleResultCode(res);
             uiTimeAfterPreFrame = SDL_GetPerformanceCounter();
-            CHECK_RESULT();
 
 
             lm::Matrix4 matView, matInvView;
@@ -259,7 +335,8 @@ int main(int argc, char** argv) {
             pRenderer->SetCamera(matView, matInvView);
             pRenderer->GetViewProjectionMatrices(gpCommonData->matProj, gpCommonData->matInvProj);
 
-            res = gpApp->OnDraw();
+            res = app->OnDraw();
+            app.HandleResultCode(res);
 
             flDelta = pRenderer->GetFrameTime();
 
@@ -274,41 +351,7 @@ int main(int argc, char** argv) {
                 }
             }
 #endif /* LEAK_CHECK */
-
-            if (IS_IN_GAME() && bOpenMenu) {
-                gpApp = pMainMenu;
-                bOpenMenu = false;
-            } else if (IS_IN_MENU() && bStartGame) {
-                // User choose the 'Start Game' option in the menu
-                if (IS_GAME_RUNNING()) {
-                    // We are in the pause menu
-                    gpApp = pRunning;
-                } else {
-                    // We are in the main menu
-                    gpApp = pRunning = StartApplication(k_nApplication_Kind_Game);
-                }
-                bStartGame = false;
-            } else if (IS_IN_MENU() && !IS_GAME_RUNNING() && bSwitchEngineMode) {
-                // User choose the 'Editor' option in the menu
-                gpApp = pRunning = StartApplication(k_nApplication_Kind_Editor);
-                bSwitchEngineMode = false;
-            }
-
-            if (IS_GAME_RUNNING() && bSwitchEngineMode) {
-                pRunning->Release();
-                if (bEngineModeGame) {
-                    gpApp = pRunning = StartApplication(k_nApplication_Kind_Editor);
-                } else {
-                    gpApp = pRunning = StartApplication(k_nApplication_Kind_Game);
-                }
-
-                bEngineModeGame = !bEngineModeGame;
-                bSwitchEngineMode = false;
-            }
         }
-
-        gpApp->Release();
-        pMainMenu->Release();
 
         gpCommonData->aGameData.Clear();
         gpCommonData->aInitialGameData.Clear();

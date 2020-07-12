@@ -25,9 +25,13 @@ enum Application_Kind {
 enum Application_Result {
     k_nApplication_Result_OK = 0,
     k_nApplication_Result_Quit = 1,
-    k_nApplication_Result_SwitchEngineMode = 2,
-    k_nApplication_Result_OpenMenu = 3,
-    k_nApplication_Result_NewGame = 4,
+
+    k_nApplication_Result_SwitchTo_Min = 10,
+    k_nApplication_Result_SwitchTo_Game = 10,
+    k_nApplication_Result_SwitchTo_Editor = 11,
+    k_nApplication_Result_SwitchTo_Menu = 12,
+    k_nApplication_Result_SwitchTo_Max = 19,
+
     k_nApplication_Result_GeneralFailure = -1,
 };
 
@@ -74,4 +78,9 @@ public:
      * This usually happens when the camera has been moved.
      */
     virtual Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight) = 0;
+
+    /**
+     * Determines the type of this application.
+     */
+    virtual Application_Kind GetAppKind() const noexcept = 0;
 };
