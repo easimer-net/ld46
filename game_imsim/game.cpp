@@ -489,6 +489,7 @@ public:
         // Apply movement input, set sprite
         auto const vPlayerMoveDir = m_pCommon->pInput->GetAxis(INPUT_AXIS_LTHUMB, 0);
         auto const vPlayerAimDir = m_pCommon->pInput->GetAxis(INPUT_AXIS_RTHUMB, 0);
+        auto const bRegularMode = m_pCommon->pInput->GetButton(INPUT_BUTTON_LTRIGGER, 0) < 0.125;
 
         for (auto& kvPlayer : aGameData.players) {
             auto const iPlayer = kvPlayer.first;
@@ -541,8 +542,21 @@ public:
                 player.vLookDir = lm::Normalized(vPlayerAimDir);
             }
 
-            auto vel = phys.body->GetLinearVelocity();
-            phys.body->SetLinearVelocity({ vMove[0], vel.y });
+            if (bRegularMode) {
+                auto vel = phys.body->GetLinearVelocity();
+                phys.body->SetLinearVelocity({ vMove[0], vel.y });
+            } else {
+                // LTrigger is being held, in this mode the y-axis of the lthumb controls the camera zoom
+                auto y = m_pCommon->pInput->GetAxis(INPUT_AXIS_LTHUMB, 0)[1];
+                if (abs(y) > 0.25) {
+                    auto c = y * flDelta * 4;
+                    auto z = m_pCommon->flCameraZoom + c;
+                    if (z < 10 && z > 1) {
+                        m_pCommon->flCameraZoom = z;
+                    } else {
+                    }
+                }
+            }
 
             player.mana += flDelta * 5;
             if (player.mana > 100) player.mana = 100;
