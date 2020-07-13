@@ -28,6 +28,7 @@ void Knife_Projectile::BeginContact(b2Contact* contact, Entity_ID me, Entity_ID 
         game_data->entities[me].hSprite.Reset();
         game_data->GetComponents<Static_Prop>().erase(me);
     }
+    game_data->GetComponents<Death_Poof>()[me] = {};
 }
 
 void Knife_Projectile::EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) {
