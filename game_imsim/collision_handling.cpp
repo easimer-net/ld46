@@ -24,7 +24,7 @@ void Knife_Projectile::BeginContact(b2Contact* contact, Entity_ID me, Entity_ID 
     }
     // game_data->DeleteEntity<Component_Deleter>(me);
     assert(game_data->phys_dynamics.count(me));
-    auto phys = game_data->phys_dynamics[me];
+    auto& phys = game_data->phys_dynamics[me];
     phys.markedForDelete = true;
 }
 

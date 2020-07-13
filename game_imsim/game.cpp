@@ -455,6 +455,8 @@ public:
     }
 
     void PhysicsLogic(float const flDelta, Game_Data& aGameData) {
+        Set<Entity_ID> markedForDelete;
+
         for (auto& kvPhys : aGameData.phys_dynamics) {
             auto iEnt = kvPhys.first;
             auto& phys = kvPhys.second;
@@ -469,9 +471,13 @@ public:
             }
 
             if (phys.markedForDelete) {
-                RemoveComponent<Phys_Dynamic>(iEnt);
-                aGameData.GetComponents<Phys_Dynamic>().erase(iEnt);
+                markedForDelete.insert(iEnt);
             }
+        }
+
+        for (auto iEnt: markedForDelete) {
+            RemoveComponent<Phys_Dynamic>(iEnt);
+            aGameData.GetComponents<Phys_Dynamic>().erase(iEnt);
         }
     }
 
@@ -522,7 +528,7 @@ public:
             auto const vMove = PLAYER_SPEED * vPlayerMoveDir;
 
             if (abs(vPlayerMoveDir[0]) > 0) {
-                player.vLookDir = lm::Vector4(vPlayerMoveDir[0], 0);
+                player.vLookDir = lm::Normalized(lm::Vector4(vPlayerMoveDir[0], 0));
             }
 
             auto vel = phys.body->GetLinearVelocity();
