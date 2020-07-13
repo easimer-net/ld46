@@ -27,15 +27,6 @@ using Set = std::unordered_set<T>;
 
 template<typename T> using Vector = std::vector<T>;
 
-#define PLAYER_MOVEDIR_RIGHT    (0x1)
-#define PLAYER_MOVEDIR_UP       (0x2)
-#define PLAYER_MOVEDIR_LEFT     (0x4)
-#define PLAYER_MOVEDIR_DOWN     (0x8)
-#define PLAYER_MOVEDIR_SET(x, c) \
-m_unPlayerMoveDir = (m_unPlayerMoveDir & (~(x))) | (c ? (x) : 0);
-#define PLAYER_MOVEDIR_GET(x) \
-(((m_unPlayerMoveDir & (x)) != 0) ? 1.0f : 0.0f)
-
 #define PLAYER_MAX_HEALTH (25.0f)
 #define PLAYER_SPEED (2.0f)
 #define PLAYER_DASH_SPEED (7.0f)
@@ -217,26 +208,7 @@ public:
 
         if (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) {
             bool bDown = ev.type == SDL_KEYDOWN;
-            auto moveDir = m_unPlayerMoveDir;
             switch (ev.key.keysym.sym) {
-            case SDLK_w:
-                PLAYER_MOVEDIR_SET(PLAYER_MOVEDIR_UP, bDown);
-                break;
-            case SDLK_a:
-                PLAYER_MOVEDIR_SET(PLAYER_MOVEDIR_LEFT, bDown);
-                break;
-            case SDLK_s:
-                PLAYER_MOVEDIR_SET(PLAYER_MOVEDIR_DOWN, bDown);
-                break;
-            case SDLK_d:
-                PLAYER_MOVEDIR_SET(PLAYER_MOVEDIR_RIGHT, bDown);
-                break;
-            case SDLK_e:
-                m_bPlayerUse = bDown;
-                break;
-            case SDLK_SPACE:
-                m_bPlayerJump = bDown;
-                break;
             case SDLK_F10:
                 if (!bDown) {
                     ret = k_nApplication_Result_SwitchTo_Editor;
@@ -282,6 +254,9 @@ public:
             m_bPlayerPrimaryAttack = !(ev.button.button == SDL_BUTTON_LEFT);
             m_bPlayerSecondaryAttack = !(ev.button.button == SDL_BUTTON_RIGHT);
         }
+
+        m_bPlayerPrimaryAttack = m_pCommon->pInput->GetButton(INPUT_BUTTON_X, 0) > 0.5f;
+        m_bPlayerSecondaryAttack = m_pCommon->pInput->GetButton(INPUT_BUTTON_Y, 0) > 0.5f;
 
         return ret;
     }
@@ -510,11 +485,7 @@ public:
     // Player logic
     void PlayerLogic(float flDelta, Game_Data& aGameData) {
         // Apply movement input, set sprite
-        auto const vPlayerMoveDir =
-            PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_RIGHT) * lm::Vector4(1.0f, 0.0f) +
-            PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_UP)    * lm::Vector4(0.0f, 1.0f) +
-            PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_LEFT)  * lm::Vector4(-1.0f, 0.0f) +
-            PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_DOWN)  * lm::Vector4(0.0f, -1.0f);
+        auto const vPlayerMoveDir = m_pCommon->pInput->GetAxis(INPUT_AXIS_LTHUMB, 0);
 
         for (auto& kvPlayer : aGameData.players) {
             auto const iPlayer = kvPlayer.first;
@@ -531,8 +502,26 @@ public:
             auto const vDist = pos - m_pCommon->vCameraPosition;
             m_pCommon->vCameraPosition = m_pCommon->vCameraPosition + flDelta * vDist;
 
-            if (PLAYER_MOVEDIR_GET(PLAYER_MOVEDIR_UP) != 0 && !player.bMidAir) {
-                // phys.body->ApplyForceToCenter({ 0, -10 }, true);
+            // Input debug
+            if (Convar_Get("input") || true) {
+                char id[64];
+                snprintf(id, 63, "Player ENT%zu Controller\n", iPlayer);
+                if (ImGui::Begin(id)) {
+                    for (auto i = INPUT_AXIS_LTHUMB; i < INPUT_AXIS_MAX; i++) {
+                        auto axis = m_pCommon->pInput->GetAxis(i, 0);
+                        ImGui::Text("Axis %u: %f %f", i, axis[0], axis[1]);
+                    }
+                    for (auto i = INPUT_BUTTON_START; i < INPUT_BUTTON_MAX; i++) {
+                        auto btn = m_pCommon->pInput->GetButton(i, 0);
+                        ImGui::Text("Button %u: %f", i, btn);
+                    }
+                }
+                ImGui::End();
+            }
+
+            m_bPlayerUse = m_pCommon->pInput->GetButton(INPUT_BUTTON_RBUMPER, 0);
+
+            if (m_pCommon->pInput->GetButton(INPUT_BUTTON_A, 0) && !player.bMidAir) {
                 phys.body->ApplyLinearImpulseToCenter({ 0, 2 }, true);
                 player.bMidAir = true;
             }

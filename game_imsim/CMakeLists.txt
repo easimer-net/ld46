@@ -52,7 +52,7 @@ macro(build_variant TARGET_SUFFIX HAS_STEAM)
 		target_compile_definitions(${TARGET_NAME} PRIVATE "BUILD_NO_STEAM")
 	endif()
 
-	target_link_libraries(${TARGET_NAME} PRIVATE ${SDL2_LIBRARIES} SDL2_ttf glad imgui libgame ${LINUXLIBS} box2d ${STEAMWORKS_LIB_PRIV})
+	target_link_libraries(${TARGET_NAME} PRIVATE SDL2-static SDL2main SDL2_ttf glad imgui libgame ${LINUXLIBS} box2d ${STEAMWORKS_LIB_PRIV})
 	target_compile_options(${TARGET_NAME} PRIVATE "-mfma")
 	target_precompile_headers(${TARGET_NAME} PRIVATE "stdafx.h")
 	ld_builddir(${TARGET_NAME})

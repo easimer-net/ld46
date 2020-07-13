@@ -314,6 +314,15 @@ int main(int argc, char** argv) {
                     app.HandleResultCode(res);
                 }
                 switch (ev.type) {
+                case SDL_CONTROLLERDEVICEADDED:
+                    gpCommonData->pInput->OnControllerAdded(ev.cdevice.which);
+                    break;
+                case SDL_CONTROLLERDEVICEREMOVED:
+                    gpCommonData->pInput->OnControllerRemoved(ev.cdevice.which);
+                    break;
+                case SDL_CONTROLLERDEVICEREMAPPED:
+                    printf("Remapped %d\n", ev.cdevice.which);
+                    break;
                 case SDL_QUIT:
                 {
                     bExit = true;

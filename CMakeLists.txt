@@ -115,7 +115,7 @@ if(MSVC)
 	endif()
 endif()
 
-find_package(SDL2 REQUIRED)
+# find_package(SDL2 REQUIRED)
 # find_package(SDL2_ttf REQUIRED)
 
 set(BOX2D_BUILD_TESTBED false)
@@ -123,6 +123,7 @@ set(BOX2D_BUILD_UNIT_TESTS false)
 set(BOX2D_BUILD_DOCS false)
 
 add_subdirectory(steamworks)
+add_subdirectory(sdl2)
 add_subdirectory(glad)
 add_subdirectory(imgui)
 add_subdirectory(box2d)

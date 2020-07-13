@@ -55,6 +55,10 @@ public:
 
     /**
      * Called for every input event that was generated.
+     *
+     * NOTE: This is the legacy way of handling user input. Game code should
+     * instead use the IInput_Manager API.
+     *
      * @param ev A structure describing the event
      */
     virtual Application_Result OnInput(SDL_Event const& ev) = 0;
