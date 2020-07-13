@@ -36,10 +36,10 @@ template<typename T> using Vector = std::vector<T>;
 #define CORPSE_DISAPPEAR_TIME (4.0f)
 
 #define HPBAR_OFF_Y (1.25f)
-#define HPBAR_SIZ_Y (0.25f)
+#define HPBAR_SIZ_Y (1 / 16.0f)
 #define HPBAR_OFF_Y_TOP (HPBAR_OFF_Y)
 #define HPBAR_OFF_Y_BOT (HPBAR_OFF_Y - HPBAR_SIZ_Y)
-#define HPBAR_SIZ_X (4.0f)
+#define HPBAR_SIZ_X (1.125f)
 
 #define ENEMY_INSTANT_ROTATION (1)
 
@@ -660,21 +660,22 @@ public:
                 diedEntities.insert(kvLiving.first);
             }
 
+            // Draw an HP bar
             float const flHpPercent = living.flHealth / living.flMaxHealth;
             dq::Draw_Rect_Params r;
             r.r = 0.6f; r.g = 0.0f; r.b = 0.0f;
             r.a = 0.2f;
-            r.x0 = ent.position[0];
+            r.x0 = ent.position[0] - 0.5f * HPBAR_SIZ_X;
             r.y0 = ent.position[1] + HPBAR_OFF_Y_TOP;
-            r.x1 = ent.position[0] + HPBAR_SIZ_X;
+            r.x1 = ent.position[0] + 0.5f * HPBAR_SIZ_X;
             r.y1 = ent.position[1] + HPBAR_OFF_Y_BOT;
             DQ_ANNOTATE(r);
             dq.Add(r);
             r.r = 0.0f; r.g = 1.0f; r.b = 0.0f;
             r.a = 0.7f;
-            r.x0 = ent.position[0];
+            r.x0 = ent.position[0] - 0.5f * HPBAR_SIZ_X;
             r.y0 = ent.position[1] + HPBAR_OFF_Y_TOP;
-            r.x1 = ent.position[0] + HPBAR_SIZ_X * flHpPercent;
+            r.x1 = ent.position[0] + 0.5f * HPBAR_SIZ_X * flHpPercent;
             r.y1 = ent.position[1] + HPBAR_OFF_Y_BOT;
             DQ_ANNOTATE(r);
             dq.Add(r);
