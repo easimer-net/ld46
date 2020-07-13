@@ -485,6 +485,7 @@ public:
     void PlayerLogic(float flDelta, Game_Data& aGameData) {
         // Apply movement input, set sprite
         auto const vPlayerMoveDir = m_pCommon->pInput->GetAxis(INPUT_AXIS_LTHUMB, 0);
+        auto const vPlayerAimDir = m_pCommon->pInput->GetAxis(INPUT_AXIS_RTHUMB, 0);
 
         for (auto& kvPlayer : aGameData.players) {
             auto const iPlayer = kvPlayer.first;
@@ -527,8 +528,14 @@ public:
 
             auto const vMove = PLAYER_SPEED * vPlayerMoveDir;
 
-            if (abs(vPlayerMoveDir[0]) > 0) {
-                player.vLookDir = lm::Normalized(lm::Vector4(vPlayerMoveDir[0], 0));
+            if (lm::LengthSq(vPlayerAimDir) < sqrt(0.5f)) {
+                // Players can aim using the right thumbstick, but if it's in
+                // the deadzone, then we use the player look dir instead
+                if (abs(vPlayerMoveDir[0]) > 0) {
+                    player.vLookDir = lm::Normalized(lm::Vector4(vPlayerMoveDir[0], 0));
+                }
+            } else {
+                player.vLookDir = lm::Normalized(vPlayerAimDir);
             }
 
             auto vel = phys.body->GetLinearVelocity();
