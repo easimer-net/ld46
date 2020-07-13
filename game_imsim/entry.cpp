@@ -240,9 +240,9 @@ static void EndLeakCheck() {}
 #define CHECK_RESULT() CHECK_TOOLSWITCH(); CHECK_QUIT(); CHECK_OPEN_MENU(); CHECK_NEWGAME();
 
 static bool IsInputEvent(SDL_Event const& ev) {
-    return ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP ||
-        ev.type == SDL_MOUSEMOTION || ev.type == SDL_MOUSEBUTTONDOWN ||
-        ev.type == SDL_MOUSEBUTTONUP ||
+    return
+        (ev.type == SDL_KEYDOWN || ev.type == SDL_KEYUP) ||
+        (SDL_MOUSEMOTION <= ev.type && ev.type <= SDL_MOUSEWHEEL) ||
         (ev.type >= SDL_CONTROLLERAXISMOTION && ev.type <= SDL_CONTROLLERDEVICEREMAPPED);
 }
 

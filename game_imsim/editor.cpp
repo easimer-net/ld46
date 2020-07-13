@@ -71,7 +71,7 @@ public:
             CAMERA_MOVEDIR_GET(CAMERA_MOVEDIR_LEFT)  * lm::Vector4(-1.0f, 0.0f) +
             CAMERA_MOVEDIR_GET(CAMERA_MOVEDIR_DOWN)  * lm::Vector4(0.0f, -1.0f);
 
-        m_pCommon->vCameraPosition = m_pCommon->vCameraPosition + flDelta * vCameraMoveDir;
+        m_pCommon->vCameraPosition = m_pCommon->vCameraPosition + m_pCommon->flCameraZoom * flDelta * vCameraMoveDir;
 
         m_flTimeSinceLastSave += flDelta;
 
