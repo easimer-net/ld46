@@ -121,26 +121,6 @@ private:
     }
 };
 
-/**
- * For use with Game_Data::ForEachComponent. Removes all components from an entity.
- */
-struct Component_Stripper {
-    Component_Stripper(Game_Data* gd) : gd(gd) {}
-
-    bool operator()(Entity_ID id, Entity* ent, Entity* component) {
-        return false;
-    }
-
-    template<typename T>
-    bool operator()(Entity_ID id, Entity* ent, T* component) {
-        gd->GetComponents<T>().erase(id);
-        return false;
-    }
-
-private:
-    Game_Data* gd;
-};
-
 class Game : public IApplication {
 public:
     Game(Common_Data* pCommon)
