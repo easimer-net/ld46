@@ -308,8 +308,6 @@ int main(int argc, char** argv) {
                 }
                 if (IsInputEvent(ev)) {
                     gpCommonData->pInput->OnInputEvent(ev);
-
-                    // TEMP: eventually remove
                     res = app->OnInput(ev);
                     app.HandleResultCode(res);
                 }
@@ -343,6 +341,7 @@ int main(int argc, char** argv) {
             MakeViewMatrices(matView, matInvView);
             pRenderer->SetCamera(matView, matInvView);
             pRenderer->GetViewProjectionMatrices(gpCommonData->matProj, gpCommonData->matInvProj);
+            pRenderer->GetResolution(gpCommonData->flScreenWidth, gpCommonData->flScreenHeight);
 
             res = app->OnDraw();
             app.HandleResultCode(res);

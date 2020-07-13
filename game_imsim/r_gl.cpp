@@ -213,6 +213,11 @@ public:
         return (uiTimePresent - uiTimeNewFrame) / (double)SDL_GetPerformanceFrequency();
     }
 
+    void GetResolution(float& width, float& height) override {
+        width = this->width;
+        height = this->height;
+    }
+
 protected:
     void Execute(dq::Draw_World_Thing_Params const& cmd) {
         BindSprite(cmd.hSprite);

@@ -15,6 +15,7 @@ public:
     virtual void SetCamera(lm::Matrix4 const& forward, lm::Matrix4 const& inverse) = 0;
     virtual void GetViewProjectionMatrices(lm::Matrix4& forward, lm::Matrix4& inverse) = 0;
     virtual double GetFrameTime() = 0;
+    virtual void GetResolution(float& width, float& height) = 0;
 };
 
 IRenderer* MakeRenderer();
