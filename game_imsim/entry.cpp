@@ -302,8 +302,8 @@ int main(int argc, char** argv) {
 
         while (!bExit) {
             while (SDL_PollEvent(&ev)) {
+                ImGui_ImplSDL2_ProcessEvent(&ev);
                 if (RedirectToImGui(ev, io)) {
-                    ImGui_ImplSDL2_ProcessEvent(&ev);
                     continue;
                 }
                 if (IsInputEvent(ev)) {

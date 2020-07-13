@@ -116,3 +116,9 @@ table Enemy_Pathfinder {
 
 table Terrestrial_NPC {
 }
+
+#memory_only
+table Death_Poof {
+    acc : float;
+    frame : int;
+}

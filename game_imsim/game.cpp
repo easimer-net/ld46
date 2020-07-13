@@ -59,6 +59,9 @@ template<typename T> using Vector = std::vector<T>;
 
 #define KNIFE_LIFETIME (4.0f)
 
+#define DEATH_POOF_MAX_FRAME (10)
+#define DEATH_POOF_FRAMETIME (1 / 20.0f)
+
 class Rand_Float {
 public:
     Rand_Float()
@@ -116,6 +119,26 @@ private:
             handler->EndContact(c, b, a);
         }
     }
+};
+
+/**
+ * For use with Game_Data::ForEachComponent. Removes all components from an entity.
+ */
+struct Component_Stripper {
+    Component_Stripper(Game_Data* gd) : gd(gd) {}
+
+    bool operator()(Entity_ID id, Entity* ent, Entity* component) {
+        return false;
+    }
+
+    template<typename T>
+    bool operator()(Entity_ID id, Entity* ent, T* component) {
+        gd->GetComponents<T>().erase(id);
+        return false;
+    }
+
+private:
+    Game_Data* gd;
 };
 
 class Game : public IApplication {
@@ -503,7 +526,7 @@ public:
             m_pCommon->vCameraPosition = m_pCommon->vCameraPosition + flDelta * vDist;
 
             // Input debug
-            if (Convar_Get("input") || true) {
+            if (Convar_Get("input")) {
                 char id[64];
                 snprintf(id, 63, "Player ENT%zu Controller\n", iPlayer);
                 if (ImGui::Begin(id)) {
@@ -695,9 +718,9 @@ public:
         }
 
         for (auto iLiving : diedEntities) {
-            aGameData.living.erase(iLiving);
-            aGameData.expiring[iLiving] = { CORPSE_DISAPPEAR_TIME };
-            aGameData.players.erase(iLiving);
+            Component_Stripper cs(&aGameData);
+            aGameData.ForEachComponent(iLiving, cs);
+            aGameData.GetComponents<Death_Poof>()[iLiving] = {};
             printf("Entity %llu has died, created corpse\n", iLiving);
         }
 
@@ -714,6 +737,7 @@ public:
             DeleteEntity(iExpired);
             printf("Removed expired entity %llu\n", iExpired);
         }
+        toBeRemoved.clear();
 
         // Doors
         for (auto& kvDoor : aGameData.closed_doors) {
@@ -724,6 +748,33 @@ public:
             auto& doorEnt = aGameData.entities[kvDoor.first];
             doorEnt.hSprite = Shared_Sprite("data/door_open001.png");
         }
+
+        // Death poof
+        for (auto& kvPoof : aGameData.GetComponents<Death_Poof>()) {
+            auto& poof = kvPoof.second;
+            poof.acc += flDelta;
+            auto frame_old = poof.frame;
+            while (poof.acc > DEATH_POOF_FRAMETIME) {
+                poof.frame++;
+                poof.acc -= DEATH_POOF_FRAMETIME;
+
+                if (poof.frame > DEATH_POOF_MAX_FRAME) {
+                    poof.frame = DEATH_POOF_MAX_FRAME;
+                    toBeRemoved.insert(kvPoof.first);
+                }
+            }
+
+            if (poof.frame != frame_old) {
+                char frame_path[128];
+                snprintf(frame_path, 127, "data/death_poof/frame%d.png", poof.frame);
+                aGameData.entities[kvPoof.first].hSprite = Shared_Sprite(frame_path);
+            }
+        }
+        for (auto& iExpired : toBeRemoved) {
+            DeleteEntity(iExpired);
+        }
+        toBeRemoved.clear();
+
 
         // Generic drawable entity
         // Find entities with valid sprite data
