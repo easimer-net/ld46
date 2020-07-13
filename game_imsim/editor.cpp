@@ -512,18 +512,6 @@ public:
         return k_nApplication_Result_OK;
     }
 
-    virtual Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight) override {
-        // NOTE(danielm): now that we have a Common_Data structured shared between modes and the engine
-        // we no longer need this call as the engine could just put the matrices right in those structures
-
-        m_pCommon->matProj = matProj;
-        m_pCommon->matInvProj = matInvProj;
-        m_pCommon->flScreenWidth = flWidth;
-        m_pCommon->flScreenHeight = flHeight;
-
-        return k_nApplication_Result_OK;
-    }
-
     ///////////////////////////////////////
 
     // Draws a debug line

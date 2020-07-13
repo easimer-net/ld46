@@ -271,13 +271,6 @@ public:
         return k_nApplication_Result_OK;
     }
 
-    virtual Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight) override {
-        m_pCommon->matInvProj = matInvProj;
-        m_pCommon->flScreenWidth = flWidth;
-        m_pCommon->flScreenHeight = flHeight;
-        return k_nApplication_Result_OK;
-    }
-
     /////////////////////////////////////////////////
 
     // Creates a new empty entity

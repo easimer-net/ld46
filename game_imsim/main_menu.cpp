@@ -49,9 +49,6 @@ private:
     virtual Application_Result OnPostFrame() override {
         return k_nApplication_Result_OK;
     }
-    virtual Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight) override {
-        return k_nApplication_Result_OK;
-    }
 
     Common_Data* m_pCommon;
 };

@@ -77,13 +77,6 @@ public:
     virtual Application_Result OnPostFrame() = 0;
 
     /**
-     * Called by the engine to notify the application that the view-projection
-     * matrix (and it's inverse) has changed.
-     * This usually happens when the camera has been moved.
-     */
-    virtual Application_Result OnProjectionMatrixUpdated(lm::Matrix4 const& matProj, lm::Matrix4 const& matInvProj, float flWidth, float flHeight) = 0;
-
-    /**
      * Determines the type of this application.
      */
     virtual Application_Kind GetAppKind() const noexcept = 0;
