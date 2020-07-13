@@ -485,7 +485,7 @@ public:
     }
 
     // Player logic
-    void PlayerLogic(float flDelta, Game_Data& aGameData) {
+    void PlayerLogic(float flDelta, Game_Data& aGameData, Vector<lm::Vector4> const& platformEdges) {
         // Apply movement input, set sprite
         auto const vPlayerMoveDir = m_pCommon->pInput->GetAxis(INPUT_AXIS_LTHUMB, 0);
         auto const vPlayerAimDir = m_pCommon->pInput->GetAxis(INPUT_AXIS_RTHUMB, 0);
@@ -604,6 +604,25 @@ public:
             }
             for (auto id : entitiesToRemove) DeleteEntity(id);
 
+            // If the player is near to the edge of a platform then move correct
+            // their position so they don't miss it
+            if (player.bMidAir) {
+                // TODO: this needs more thought put onto it. It's fine but sometimes
+                // it looks janky.
+                auto const vFoot = ent.position - lm::Vector4(0, ent.size[1] / 2);
+                for (auto v : platformEdges) {
+#define PLAYER_EDGE_CORRECTION_MAX_DIST (0.15f)
+#define PLAYER_EDGE_CORRECTION_MIN_DIST (0.075f)
+                    auto const flDist = lm::LengthSq(v - ent.position);
+                    if (PLAYER_EDGE_CORRECTION_MIN_DIST < flDist && flDist < PLAYER_EDGE_CORRECTION_MAX_DIST) {
+                        ent.position = v + lm::Vector4(0, ent.size[1] / 2 + 0.001f);
+                        phys.body->SetTransform(b2Vec2(ent.position[0], ent.position[1]), 0);
+                        player.bMidAir = false;
+                        break;
+                    }
+                }
+            }
+
             auto& living = aGameData.living[kvPlayer.first];
             char playerid[64];
             snprintf(playerid, 63, "Player #%zu\n", kvPlayer.first);
@@ -672,12 +691,35 @@ public:
         }
     }
 
+    std::vector<lm::Vector4> GetPlatformEdges(Game_Data& aGameData) {
+        std::vector<lm::Vector4> ret;
+
+        for (auto& kvPlat : aGameData.GetComponents<Platform>()) {
+            auto& ent = aGameData.entities[kvPlat.first];
+            auto width = ent.size[0] / 2;
+            auto height = ent.size[1] / 2;
+
+            ret.push_back(lm::Vector4(ent.position + lm::Vector4(-width, height)));
+            ret.push_back(lm::Vector4(ent.position + lm::Vector4(+width, height)));
+        }
+
+        if (Convar_Get("vis_plat_edges")) {
+            auto off = lm::Vector4(0, 0.25f);
+            for (auto v : ret) {
+                DbgLine(v - off, v + off);
+            }
+        }
+
+        return ret;
+    }
+
     void MainLogic(float flDelta) {
         auto& dq = m_dq;
         auto& aGameData = m_pCommon->aGameData;
+        auto const platform_edges = GetPlatformEdges(aGameData);
 
         PhysicsLogic(flDelta, aGameData);
-        PlayerLogic(flDelta, aGameData);
+        PlayerLogic(flDelta, aGameData, platform_edges);
         EnemyLogic(flDelta, aGameData);
         TerrestrialNPCLogic(flDelta, aGameData);
 
