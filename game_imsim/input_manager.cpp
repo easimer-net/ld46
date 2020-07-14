@@ -144,6 +144,21 @@ private:
         RemoveController((SDL_JoystickID)id);
     }
 
+    unsigned GetInputKind(uint32_t iPlayer) override {
+        assert(iPlayer < m_players.size());
+        auto ctl = SDL_GameControllerFromPlayerIndex(iPlayer);
+        if (ctl != NULL) {
+            auto type = SDL_GameControllerGetType(ctl);
+            switch (type) {
+            case SDL_CONTROLLER_TYPE_XBOX360:
+            default:
+                return INPUT_KIND_X360;
+            }
+        } else {
+            return INPUT_KIND_PC;
+        }
+    }
+
     SDL_GameController* AddController(Sint32 hardware_idx) {
         assert(SDL_IsGameController(hardware_idx));
         auto ctl = SDL_GameControllerOpen(hardware_idx);

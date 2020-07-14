@@ -261,6 +261,17 @@ protected:
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     }
 
+    void Execute(dq::Draw_Screen_Space_Params const& cmd) {
+        auto aspect = height / (float)width;
+        BindSprite(cmd.hSprite);
+        UseShader(m_shdr_generic);
+        gl::Bind(m_quad->arr);
+        auto vPos = lm::Vector4(2 * cmd.x - 1, 2 * (1 - cmd.y) - 1, 0);
+        auto matMVP = lm::Scale(cmd.width * aspect, cmd.height, 1) * lm::Translation(vPos);
+        SetShaderMVP(m_shdr_generic, matMVP);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
+
     void Execute(std::monostate const&) {}
 
     void GetViewProjectionMatrices(lm::Matrix4& forward, lm::Matrix4& inverse) override {

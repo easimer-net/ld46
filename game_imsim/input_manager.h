@@ -24,6 +24,13 @@
 #define INPUT_BUTTON_UNUSED   (10)
 #define INPUT_BUTTON_MAX      (11)
 
+// Mouse & Keyboard
+#define INPUT_KIND_PC         (0)
+// X360 controller
+#define INPUT_KIND_X360       (1)
+// Steam Controller
+#define INPUT_KIND_VSC        (2)
+
 class IInput_Manager {
 public:
     virtual void Release() = 0;
@@ -46,6 +53,8 @@ public:
 
     virtual void OnControllerAdded(Sint32 id) = 0;
     virtual void OnControllerRemoved(Sint32 id) = 0;
+
+    virtual unsigned GetInputKind(uint32_t iPlayer) = 0;
 };
 
 IInput_Manager* MakeInputManager();

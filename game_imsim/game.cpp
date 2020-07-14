@@ -89,6 +89,49 @@ private:
     std::uniform_real_distribution<float> uniform11;
 };
 
+class Player_HUD {
+public:
+    Player_HUD() {
+        m_icons[Icon_RBUMPER] = Shared_Sprite("data/ui/input_prompt/1/RB.png");
+    }
+
+    enum Icon {
+        Icon_None = 0,
+        Icon_RBUMPER,
+        Icon_MAX
+    };
+
+    void Prompt(Icon icon, std::string text) {
+        m_prompts.push_back({ icon, std::move(text) });
+    }
+
+    void EndFrame(dq::Draw_Queue& dq) {
+        dq::Draw_Screen_Space_Params cmd;
+        auto y_cur = 0.75f;
+        auto const height = 0.2222f;
+        auto const y_step = height + 0.05f;
+        auto const width = 0.2222f;
+        for (auto& p : m_prompts) {
+            cmd.hSprite = m_icons[p.icon];
+            cmd.x = 0.5f;
+            cmd.y = y_cur;
+            cmd.width = width;
+            cmd.height = height;
+            DQ_ANNOTATE(cmd);
+            y_cur += y_step;
+            dq.Add(std::move(cmd));
+        }
+        m_prompts.clear();
+    }
+private:
+    Shared_Sprite m_icons[Icon_MAX];
+    struct Prompt_t {
+        Icon icon;
+        std::string text;
+    };
+    std::vector<Prompt_t> m_prompts;
+};
+
 class ContactListener : public b2ContactListener {
 public:
     ContactListener(Game_Data* gd) : gd(gd) {}
@@ -265,6 +308,7 @@ public:
     }
 
     virtual Application_Result OnDraw() override {
+        m_hud.EndFrame(m_dq);
         m_pCommon->pRenderer->Submit(m_dq);
         m_dq.Clear();
         return k_nApplication_Result_OK;
@@ -564,6 +608,10 @@ public:
             if (player.mana > 100) player.mana = 100;
             player.attackCooldown -= flDelta;
 
+            if (IsPlayerNearDoor_cached) {
+                m_hud.Prompt(Player_HUD::Icon_RBUMPER, "Open door");
+            }
+
             if (m_bPlayerUse) {
                 Set<Entity_ID> doorsToOpen;
                 for (auto& kvDoor : aGameData.closed_doors) {
@@ -719,6 +767,8 @@ public:
         auto& dq = m_dq;
         auto& aGameData = m_pCommon->aGameData;
         auto const platform_edges = GetPlatformEdges(aGameData);
+
+        CACHE_QUERY_RUNFRAME();
 
         PhysicsLogic(flDelta, aGameData);
         PlayerLogic(flDelta, aGameData, platform_edges);
@@ -969,11 +1019,32 @@ public:
         Initialize(id, phys, b2_dynamicBody, phys.inhibitRotation);
     }
 
+    bool IsPlayerNearDoor() {
+        bool ret = false;
+
+        for (auto& kvPlayer : m_pCommon->aGameData.GetComponents<Player>()) {
+            auto const playerPos = m_pCommon->aGameData.entities[kvPlayer.first].position;
+            for (auto& kvDoor : m_pCommon->aGameData.GetComponents<Closed_Door>()) {
+                auto const doorPos = m_pCommon->aGameData.entities[kvDoor.first].position;
+                auto flDist = lm::LengthSq(doorPos - playerPos);
+                if (flDist < 1.0f) {
+                    ret = true;
+                    break;
+                }
+            }
+
+            if (ret) break;
+        }
+
+        return ret;
+    }
+
 private:
     Common_Data* m_pCommon;
     Animation_Collection m_hAnimPlayer;
     dq::Draw_Queue m_dq;
     char m_pszConBuf[CONSOLE_BUFFER_SIZ];
+    Player_HUD m_hud;
 
     unsigned m_unPlayerMoveDir;
     bool m_bPlayerUse;
@@ -987,6 +1058,9 @@ private:
     IPath_Finding* m_path_finding;
 
     Rand_Float m_rand;
+
+    DECLARE_CACHE_QUERY_COLLECTOR();
+    CACHE_QUERY(IsPlayerNearDoor, bool, 15);
 };
 
 extern IApplication* StartGame(Common_Data* pCommon) {

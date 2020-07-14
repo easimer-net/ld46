@@ -58,10 +58,21 @@ namespace dq {
         DQ_DEBUG_NOTE;
     };
 
+    struct Draw_Screen_Space_Params {
+        Shared_Sprite hSprite;
+        // 0 to 1
+        float x, y;
+        // 0 to 1
+        float width, height;
+
+        DQ_DEBUG_NOTE;
+    };
+
     using Draw_Command = std::variant<
         Draw_World_Thing_Params,
         Draw_Line_Params,
         Draw_Rect_Params,
+        Draw_Screen_Space_Params,
         std::monostate
     >;
 
