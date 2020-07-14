@@ -95,10 +95,14 @@ table Closed_Door {
 table Open_Door {
 }
 
+%'TODO: rename to Projectile'
 #needs_reference_to_game_data
 #implements_interface(Collision_Handler)
 #memory_only
 table Knife_Projectile {
+    %'Was this projectile fired by the player?'
+    ofPlayer : bool;
+
     member_function 'void BeginContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
     member_function 'void EndContact(b2Contact* contact, Entity_ID me, Entity_ID other) override';
 }

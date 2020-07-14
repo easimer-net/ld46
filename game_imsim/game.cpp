@@ -440,7 +440,7 @@ public:
         DbgLine(p0[0], p0[1], p1[0], p1[1]);
     }
 
-    void SpawnKnife(lm::Vector4 const& p0, float x_dir, float y_dev) {
+    void SpawnKnife(lm::Vector4 const& p0, float x_dir, float y_dev, bool ofPlayer) {
         auto id = AllocateEntity();
         auto& aGameData = m_pCommon->aGameData;
         auto& ent = aGameData.entities[id];
@@ -451,10 +451,12 @@ public:
         Knife_Projectile proj;
         proj.self_id = id;
         proj.game_data = &aGameData;
+        proj.ofPlayer = ofPlayer;
         aGameData.knife_projectiles[id] = proj;
         aGameData.expiring[id] = { KNIFE_LIFETIME };
         AttachPhysDynamic(id, 1.0f, 0.3f, false);
         aGameData.phys_dynamics[id].body->ApplyLinearImpulseToCenter(0.20f * b2Vec2(x_dir / abs(x_dir), 0), true);
+        aGameData.phys_dynamics[id].body->SetGravityScale(0.0f);
     }
 
     void PhysicsLogic(float const flDelta, Game_Data& aGameData) {
@@ -586,7 +588,7 @@ public:
                 if (player.attackCooldown <= 0.0f && player.mana >= 2) {
                     player.mana -= 2;
                     player.attackCooldown = 0.05f;
-                    SpawnKnife(ent.position + 1 * player.vLookDir, player.vLookDir[0], ent.size[1] / 2);
+                    SpawnKnife(ent.position + 1 * player.vLookDir, player.vLookDir[0], ent.size[1] / 2, true);
                 }
             }
 
